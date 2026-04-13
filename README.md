@@ -1,6 +1,6 @@
 # study-review-graph
 
-`study-review-graph` is a CLI-first, open-source study and review pipeline for course materials. It ingests local study materials such as PDFs, markdown notes, and plain text notes, then produces grounded study artifacts: a lightweight concept map, formula catalog, concrete example prompts, worked-solution scaffolds, review notes, and a placeholder quality report.
+`study-review-graph` is a CLI-first, open-source study and review pipeline for course materials. It ingests local study materials such as PDFs, markdown notes, and plain text notes, then produces grounded study artifacts. The first polished v0.1 slice is centered on two showcase outputs: `content_map.md` and `formula_sheet.md`.
 
 The project exists to support deep understanding rather than shallow summarization. Instead of treating study material as a generic chat prompt, it organizes the work as a deterministic LangGraph workflow with shared state and structured intermediate artifacts. This makes the first version easier to inspect, test, and debug.
 
@@ -12,20 +12,20 @@ The project exists to support deep understanding rather than shallow summarizati
 
 ## What v0.1 Actually Supports
 
-Version `0.1.0` is a production-style skeleton with deterministic defaults:
+Version `0.1.0` now includes a clearer functional slice with deterministic defaults:
 
 - CLI-first workflow
 - Local document ingestion for `.pdf`, `.md`, and `.txt`
 - Normalization and chunking
 - A simple retrieval layer with deterministic token-overlap scoring
-- Lightweight concept extraction heuristics
-- Heuristic formula extraction with symbol explanation placeholders
+- A presentable `content_map.md` built from headings, section titles, and repeated source terms
+- A presentable `formula_sheet.md` built from heuristic formula extraction plus grounded source references
 - Deterministic example generation and worked-solution scaffolding
 - Deterministic review note generation
 - Quality review placeholders for groundedness, formula coverage, and explanation completeness
 - Markdown export with source traceability fields where possible
 
-This version is intentionally conservative. It is a runnable repository skeleton, not a finished pedagogical system. Model-backed reasoning, robust evaluation, and embedding-backed retrieval are still TODOs.
+This version is intentionally conservative. It is a runnable repository skeleton with one polished pipeline slice, not a finished pedagogical system. Model-backed reasoning, robust evaluation, and embedding-backed retrieval are still TODOs.
 
 ## Planned Later
 
@@ -96,10 +96,32 @@ python -m study_review_graph run --input-dir examples/input --output-dir example
 
 ## Generated Outputs
 
-The exporter writes a small markdown bundle by default:
+The primary showcase outputs are:
+
+- `content_map.md`
+- `formula_sheet.md`
+
+`content_map.md` contains:
+
+- a curated list of inferred study concepts
+- a short grounded description for each concept
+- linked formulas when available
+- source references for traceability
+
+`formula_sheet.md` contains:
+
+- the extracted formula expression
+- the formula id
+- symbol explanations
+- conditions and assumptions
+- linked concepts when available
+- source references
+- explicit TODO markers where understanding is still incomplete
+
+The exporter also keeps these additional files:
 
 - `overview.md`
-- `formulas.md`
+- `formulas.md` (legacy compatibility mirror of `formula_sheet.md`)
 - `worked_solutions.md`
 - `review_notes.md`
 - `quality_report.md`
@@ -108,8 +130,10 @@ These outputs are scaffolded for grounded study workflows and include source ref
 
 ## Current Limitations
 
+- Content map construction is heuristic and prioritizes headings plus repeated source terms.
 - Formula extraction is heuristic and line-based.
 - Symbol explanations are partially inferred from nearby glossary-style lines and otherwise left as TODOs.
+- Conditions and assumptions are extracted from nearby source sentences when possible, otherwise left as TODOs.
 - Quality review uses placeholder checks rather than advanced evaluators.
 - Retrieval is deterministic token overlap, not embeddings.
 - PDF support requires the optional runtime dependencies to be installed.

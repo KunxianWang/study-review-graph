@@ -4,6 +4,11 @@
 
 Build a deterministic study and review workflow that turns course materials into grounded learning artifacts for deep understanding.
 
+The first polished v0.1 slice is centered on two primary outputs:
+
+- `content_map.md`
+- `formula_sheet.md`
+
 ## Design Principles
 
 - shared workflow state over ad hoc agent memory
@@ -40,6 +45,12 @@ Responsibilities:
 
 This subgraph should not generate worked examples or narrative review notes.
 
+Current v0.1 behavior:
+
+- extraction is still heuristic
+- symbol explanations come from local glossary-style lines when available
+- conditions are pulled from nearby sentence cues when available, otherwise explicit TODO markers remain
+
 ### Solution Subgraph
 
 Responsibilities:
@@ -68,6 +79,34 @@ The central state model is `StudyGraphState`. It carries:
 The first version uses deterministic chunk scoring based on token overlap. This keeps the system easy to run locally and easy to inspect in tests.
 
 Future versions can replace this with embedding-backed retrieval while preserving the same module boundary.
+
+The current polished slice uses this retrieval layer in two visible ways:
+
+- grounding concept descriptions for `content_map.md`
+- pulling nearby support for formula conditions and concept links in `formula_sheet.md`
+
+## Primary Outputs
+
+### `content_map.md`
+
+This file is intended to be a readable study artifact rather than a debug dump. Each concept includes:
+
+- concept name
+- short grounded description
+- linked formulas when available
+- source references
+
+### `formula_sheet.md`
+
+This file is intended to be a readable formula study sheet. Each entry includes:
+
+- formula expression
+- formula id
+- symbol explanations
+- conditions and assumptions
+- linked concepts when available
+- source references
+- explicit TODO markers where interpretation remains incomplete
 
 ## Extension Points
 

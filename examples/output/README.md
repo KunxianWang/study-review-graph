@@ -2,6 +2,11 @@
 
 Generated markdown artifacts can be written to this directory during local runs.
 
+Primary showcase outputs:
+
+- `content_map.md`
+- `formula_sheet.md`
+
 Recommended command:
 
 ```bash

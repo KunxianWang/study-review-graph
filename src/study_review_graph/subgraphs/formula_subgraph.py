@@ -7,9 +7,11 @@ from functools import lru_cache
 from typing import Any
 
 from study_review_graph.compat import END, START, StateGraph
+from study_review_graph.retrieval import retrieve_relevant_chunks
 from study_review_graph.state import FormulaArtifact, StudyGraphState
 
 FORMULA_PATTERN = re.compile(r"([A-Za-z_][A-Za-z0-9_]*\s*=\s*.+)")
+CONDITION_CUES = ("when", "assuming", "valid", "under", "if", "use this")
 
 
 def extract_formulas_node(state: StudyGraphState) -> list[FormulaArtifact]:
@@ -32,7 +34,10 @@ def extract_formulas_node(state: StudyGraphState) -> list[FormulaArtifact]:
                     formula_id=f"formula-{len(formulas)}",
                     expression=expression,
                     references=chunk.references,
-                    notes="TODO: replace heuristic extraction with model-assisted parsing.",
+                    notes=(
+                        "TODO: heuristic extraction only. Confirm the exact derivation and scope "
+                        "from the source material."
+                    ),
                 )
             )
     return formulas
@@ -52,7 +57,8 @@ def explain_formula_symbols_node(state: StudyGraphState) -> list[FormulaArtifact
             )
             for symbol in symbols
         }
-        conditions = ["TODO: verify formula-specific assumptions from retrieved supporting chunks."]
+        supporting_chunks = retrieve_relevant_chunks(formula.expression, state, top_k=2)
+        conditions = _extract_conditions(formula.expression, supporting_chunks)
         updated.append(
             formula.model_copy(
                 update={
@@ -69,6 +75,7 @@ def link_formulas_to_concepts_node(state: StudyGraphState) -> list[FormulaArtifa
 
     updated: list[FormulaArtifact] = []
     for formula in state.formulas:
+        supporting_chunks = retrieve_relevant_chunks(formula.expression, state, top_k=2)
         linked = [
             concept.concept_id
             for concept in state.concepts
@@ -77,8 +84,21 @@ def link_formulas_to_concepts_node(state: StudyGraphState) -> list[FormulaArtifa
                 concept.name.lower() in (reference.excerpt or "").lower()
                 for reference in formula.references
             )
+            or any(concept.name.lower() in chunk.text.lower() for chunk in supporting_chunks)
         ]
-        updated.append(formula.model_copy(update={"concept_links": linked}))
+        note_lines = [formula.notes]
+        if not linked:
+            note_lines.append("TODO: no linked concept found from current heuristic matching.")
+        if any("TODO:" in item for item in formula.conditions):
+            note_lines.append("TODO: formula conditions remain incomplete.")
+        updated.append(
+            formula.model_copy(
+                update={
+                    "concept_links": linked,
+                    "notes": " ".join(line for line in note_lines if line),
+                }
+            )
+        )
     return updated
 
 
@@ -137,3 +157,30 @@ def _build_symbol_glossary(state: StudyGraphState) -> dict[str, str]:
             if key:
                 glossary[key.lower()] = value
     return glossary
+
+
+def _extract_conditions(expression: str, chunks) -> list[str]:
+    conditions: list[str] = []
+    seen = set()
+    for chunk in chunks:
+        for sentence in _sentence_candidates(chunk.text):
+            lowered = sentence.lower()
+            if expression.lower() in lowered:
+                continue
+            if any(cue in lowered for cue in CONDITION_CUES):
+                if sentence not in seen:
+                    seen.add(sentence)
+                    conditions.append(sentence)
+    if not conditions:
+        conditions.append(
+            "TODO: confirm the exact assumptions and valid-use conditions from nearby source text."
+        )
+    return conditions
+
+
+def _sentence_candidates(text: str) -> list[str]:
+    return [
+        sentence.strip()
+        for sentence in re.split(r"(?<=[.!?])\s+|\n+", text)
+        if sentence.strip()
+    ]

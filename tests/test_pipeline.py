@@ -29,7 +29,12 @@ def test_pipeline_runs_end_to_end(tmp_path: Path):
     final_state = invoke_study_graph(initial_state)
 
     assert final_state.formulas
+    assert final_state.concepts
     assert final_state.examples
     assert final_state.worked_solutions
-    assert "review_notes" in final_state.output_paths
-    assert (output_dir / "review_notes.md").exists()
+    assert "content_map" in final_state.output_paths
+    assert "formula_sheet" in final_state.output_paths
+    assert (output_dir / "content_map.md").exists()
+    assert (output_dir / "formula_sheet.md").exists()
+    assert "# Content Map" in (output_dir / "content_map.md").read_text(encoding="utf-8")
+    assert "F = m * a" in (output_dir / "formula_sheet.md").read_text(encoding="utf-8")
