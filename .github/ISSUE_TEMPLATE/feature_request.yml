@@ -1,0 +1,22 @@
+name: Feature request
+description: Suggest an improvement to the study workflow.
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or goal
+      description: What user need are you trying to support?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach
+      description: Describe the workflow or API shape you have in mind.
+  - type: textarea
+    id: grounding
+    attributes:
+      label: Grounding impact
+      description: How should the change preserve correctness, traceability, or clarity?

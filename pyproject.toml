@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "study-review-graph"
+version = "0.1.0"
+description = "A CLI-first study and review workflow for course materials using LangGraph, LangChain, and grounded generation."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+  { name = "KunxianWang" }
+]
+dependencies = [
+  "langchain>=0.3.0",
+  "langchain-community>=0.3.0",
+  "langchain-text-splitters>=0.3.0",
+  "langgraph>=0.2.0",
+  "pydantic>=2.8.0",
+  "pypdf>=4.3.0",
+  "rich>=13.7.0",
+  "typer>=0.12.0"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2.0",
+  "ruff>=0.6.0"
+]
+
+[project.scripts]
+study-review-graph = "study_review_graph.cli:app"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
