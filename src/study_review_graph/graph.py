@@ -103,8 +103,11 @@ def _formula_subgraph_graph_node(state_dict: dict[str, Any]) -> dict[str, Any]:
 
 def _example_generation_graph_node(state_dict: dict[str, Any]) -> dict[str, Any]:
     state = StudyGraphState.model_validate(state_dict)
-    examples = generate_examples_node(state)
-    return {"examples": [example.model_dump(mode="python") for example in examples]}
+    examples, warnings = generate_examples_node(state)
+    return {
+        "examples": [example.model_dump(mode="python") for example in examples],
+        "warnings": state.warnings + warnings,
+    }
 
 
 def _solution_subgraph_graph_node(state_dict: dict[str, Any]) -> dict[str, Any]:

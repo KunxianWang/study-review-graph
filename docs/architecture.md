@@ -4,10 +4,12 @@
 
 Build a deterministic study and review workflow that turns course materials into grounded learning artifacts for deep understanding.
 
-The first polished v0.1 slice is centered on two primary outputs:
+The current polished v0.1 foundation is centered on four primary outputs:
 
 - `content_map.md`
 - `formula_sheet.md`
+- `worked_examples.md`
+- `worked_solutions.md`
 
 These outputs can be enhanced with an OpenAI-compatible model endpoint, including Gemini behind an OpenAI-compatible base URL, while preserving a heuristic fallback path.
 
@@ -64,6 +66,13 @@ Responsibilities:
 
 This subgraph should not own formula discovery.
 
+Current v0.1 behavior:
+
+- example-to-solution mapping stays deterministic and explicit
+- worked examples remain tied to one main formula, plus a small amount of nearby concept context
+- direct arithmetic is only attempted for simple solved-form formulas
+- optional model calls refine explanation wording and study usefulness, but they do not replace the workflow structure
+
 ## State Model
 
 The central state model is `StudyGraphState`. It carries:
@@ -105,6 +114,8 @@ Current LLM-enhanced nodes:
 - formula-sheet symbol explanation refinement
 - formula-sheet condition refinement
 - formula-sheet concept-link suggestion
+- worked-example wording refinement
+- worked-solution wording refinement
 
 ## Primary Outputs
 
@@ -132,6 +143,35 @@ This file is intended to be a readable formula study sheet. Each entry includes:
 - explicit TODO markers where interpretation remains incomplete
 
 In v0.1, formula extraction remains heuristic. The model only enhances interpretation around the extracted formula.
+
+### `worked_examples.md`
+
+This file is intended to turn the concept/formula slice into concrete study practice. Each entry includes:
+
+- example id
+- title
+- target formula id(s)
+- difficulty
+- problem statement
+- known values when available
+- study-value note
+- source references
+
+In v0.1, the example structure is deterministic and formula-centered. The model only refines clarity and phrasing around the same local evidence.
+
+### `worked_solutions.md`
+
+This file is intended to support learning, not just answer production. Each entry includes:
+
+- solution id
+- linked example id
+- plan steps
+- detailed steps
+- rationale
+- common mistakes
+- source references
+
+In v0.1, the solution scaffold stays deterministic. The model may improve wording and pedagogical clarity, but it should not invent unsupported derivations or exact conditions.
 
 ## Extension Points
 

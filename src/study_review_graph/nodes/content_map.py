@@ -6,7 +6,7 @@ import re
 from collections import Counter
 
 from study_review_graph.model_client import get_model_client
-from study_review_graph.retrieval import collect_top_terms, retrieve_relevant_chunks
+from study_review_graph.retrieval import retrieve_relevant_chunks
 from study_review_graph.state import ConceptRecord, StudyGraphState
 
 GENERIC_SECTION_NAMES = {
@@ -20,6 +20,67 @@ GENERIC_SECTION_NAMES = {
     "lecture",
     "lecture notes",
 }
+STOPWORD_LIKE_TOKENS = {
+    "a",
+    "an",
+    "and",
+    "another",
+    "are",
+    "as",
+    "at",
+    "be",
+    "by",
+    "can",
+    "core",
+    "equals",
+    "for",
+    "from",
+    "if",
+    "in",
+    "is",
+    "it",
+    "of",
+    "on",
+    "or",
+    "relationship",
+    "states",
+    "that",
+    "the",
+    "their",
+    "these",
+    "this",
+    "those",
+    "to",
+    "use",
+    "used",
+    "when",
+    "with",
+}
+DOMAIN_SINGLE_WORDS = {
+    "acceleration",
+    "energy",
+    "force",
+    "kinetics",
+    "kinematics",
+    "mass",
+    "mechanics",
+    "momentum",
+    "probability",
+    "velocity",
+}
+GRAMMATICAL_BREAK_WORDS = {
+    "are",
+    "assuming",
+    "describes",
+    "explains",
+    "if",
+    "is",
+    "measures",
+    "state",
+    "states",
+    "under",
+    "when",
+}
 
 
 def build_content_map_node(state: StudyGraphState) -> tuple[list[ConceptRecord], list[str]]:
@@ -29,18 +90,17 @@ def build_content_map_node(state: StudyGraphState) -> tuple[list[ConceptRecord],
     weighted_candidates: Counter[str] = Counter()
     for doc in state.normalized_docs:
         for section in doc.sections:
-            cleaned = _clean_candidate(section)
+            cleaned = _clean_candidate(section, from_section=True)
             if cleaned:
-                weighted_candidates[cleaned] += 3
+                weighted_candidates[cleaned] += 5
 
-    for term in collect_top_terms((chunk.text for chunk in state.chunks), limit=20):
-        cleaned = _clean_candidate(term)
-        if cleaned:
-            weighted_candidates[cleaned] += 1
+    for chunk in state.chunks:
+        for candidate, weight in _extract_phrase_candidates(chunk.text).items():
+            cleaned = _clean_candidate(candidate, from_section=False)
+            if cleaned:
+                weighted_candidates[cleaned] += weight
 
-    ranked_candidates = [
-        candidate for candidate, _score in weighted_candidates.most_common(8)
-    ]
+    ranked_candidates = _rank_candidates(weighted_candidates)
 
     model_client = get_model_client()
     model_warning = model_client.availability_warning()
@@ -76,15 +136,43 @@ def build_content_map_node(state: StudyGraphState) -> tuple[list[ConceptRecord],
     return concepts, warnings
 
 
-def _clean_candidate(candidate: str) -> str:
+def _clean_candidate(candidate: str, *, from_section: bool) -> str:
     cleaned = re.sub(r"\s+", " ", candidate).strip(" -#:\t")
     if not cleaned:
         return ""
-    if cleaned.lower() in GENERIC_SECTION_NAMES:
+
+    cleaned = re.sub(r"(?i)\bnotes?\b$", "", cleaned).strip(" -#:\t")
+    cleaned = re.sub(r"(?i)^intro(?:duction)?\b", "", cleaned).strip(" -#:\t")
+    cleaned = _truncate_at_break_words(cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip(" -#:\t")
+    if not cleaned:
         return ""
-    if len(cleaned) < 3:
+
+    lowered = cleaned.lower()
+    if lowered in GENERIC_SECTION_NAMES:
         return ""
-    return cleaned
+    if lowered in STOPWORD_LIKE_TOKENS:
+        return ""
+
+    tokens = [token for token in re.findall(r"[A-Za-z][A-Za-z'-]*", cleaned)]
+    if not tokens:
+        return ""
+
+    meaningful_tokens = [token for token in tokens if token.lower() not in STOPWORD_LIKE_TOKENS]
+    if not meaningful_tokens:
+        return ""
+
+    if len(tokens) == 1:
+        token = tokens[0]
+        if len(token) < 4:
+            return ""
+        if not from_section and token.lower() not in DOMAIN_SINGLE_WORDS:
+            return ""
+
+    if len(tokens) >= 2 and len(meaningful_tokens) == 1:
+        return ""
+
+    return " ".join(token if token.isupper() else token.capitalize() for token in meaningful_tokens)
 
 
 def _collect_references(chunks) -> list:
@@ -154,3 +242,47 @@ def _render_chunk_context(chunks) -> str:
     for chunk in chunks:
         lines.append(f"- {chunk.source_path} [{chunk.chunk_id}]: {chunk.text[:500].strip()}")
     return "\n".join(lines)
+
+
+def _truncate_at_break_words(candidate: str) -> str:
+    tokens = candidate.split()
+    kept: list[str] = []
+    for token in tokens:
+        normalized = token.lower().strip(".,:;!?")
+        if normalized in GRAMMATICAL_BREAK_WORDS and kept:
+            break
+        kept.append(token)
+    return " ".join(kept)
+
+
+def _extract_phrase_candidates(text: str) -> Counter[str]:
+    candidates: Counter[str] = Counter()
+    for line in text.splitlines():
+        stripped = line.strip().lstrip("-").strip()
+        if ":" in stripped:
+            key, value = [part.strip() for part in stripped.split(":", 1)]
+            if _looks_like_symbol_key(key):
+                candidates[value] += 3
+
+    for sentence in _sentence_candidates(text):
+        subject_match = re.match(
+            r"^([A-Za-z][A-Za-z' -]{2,60}?)\s+(states?|explains?|describes?|measures?|is|are)\b",
+            sentence,
+            flags=re.IGNORECASE,
+        )
+        if subject_match:
+            candidates[subject_match.group(1).strip()] += 3
+    return candidates
+
+
+def _looks_like_symbol_key(key: str) -> bool:
+    return bool(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key))
+
+
+def _rank_candidates(weighted_candidates: Counter[str]) -> list[str]:
+    ranked = [
+        candidate
+        for candidate, score in weighted_candidates.most_common(10)
+        if score >= 2
+    ]
+    return ranked[:8]

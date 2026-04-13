@@ -51,7 +51,7 @@ The state model is intentionally structured and explicit. Each major workflow st
 ### `examples`
 
 - Type: `list[ExampleArtifact]`
-- Purpose: concrete example prompts grounded in formulas or concepts
+- Purpose: concrete worked examples grounded in formulas or concepts
 
 ### `worked_solutions`
 
@@ -113,6 +113,39 @@ Current v0.1 config fields:
 - `enable_gemini_review`
 
 The last two flags are extension hooks only. They do not enable advanced functionality in v0.1 yet.
+
+### `ExampleArtifact`
+
+Current v0.1 example fields include:
+
+- `example_id`
+- `title`
+- `problem_statement`
+- `formula_ids`
+- `difficulty`
+- `study_value`
+- `known_values`
+- `target_symbol`
+- `prompt` (legacy compatibility mirror of `problem_statement`)
+- `formula_id` (legacy compatibility field for a single primary formula)
+- `reasoning_context`
+- `references`
+
+This model is intentionally explicit so the solution subgraph can stay grounded in the same formula-centered example rather than regenerating an unrelated prompt later.
+
+### `WorkedSolution`
+
+Current v0.1 solution fields include:
+
+- `solution_id`
+- `example_id`
+- `plan_steps`
+- `detailed_steps`
+- `rationale`
+- `common_mistakes`
+- `references`
+
+The model is designed for study guidance, not just final-answer storage.
 
 ## Notes
 

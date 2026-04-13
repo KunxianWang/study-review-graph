@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from study_review_graph.state import FormulaArtifact, SourceReference, StudyGraphState, WorkedSolution
+from study_review_graph.state import ExampleArtifact, FormulaArtifact, SourceReference, StudyGraphState, WorkedSolution
 
 
 def export_markdown_bundle(state: StudyGraphState) -> dict[str, str]:
@@ -16,6 +16,7 @@ def export_markdown_bundle(state: StudyGraphState) -> dict[str, str]:
     output_paths = {
         "content_map": str(output_dir / "content_map.md"),
         "formula_sheet": str(output_dir / "formula_sheet.md"),
+        "worked_examples": str(output_dir / "worked_examples.md"),
         "overview": str(output_dir / "overview.md"),
         "formulas": str(output_dir / "formulas.md"),
         "worked_solutions": str(output_dir / "worked_solutions.md"),
@@ -28,10 +29,14 @@ def export_markdown_bundle(state: StudyGraphState) -> dict[str, str]:
 
     Path(output_paths["content_map"]).write_text(content_map_markdown, encoding="utf-8")
     Path(output_paths["formula_sheet"]).write_text(formula_sheet_markdown, encoding="utf-8")
+    Path(output_paths["worked_examples"]).write_text(
+        _render_worked_examples(state),
+        encoding="utf-8",
+    )
     Path(output_paths["overview"]).write_text(_render_overview(state), encoding="utf-8")
     Path(output_paths["formulas"]).write_text(formula_sheet_markdown, encoding="utf-8")
     Path(output_paths["worked_solutions"]).write_text(
-        _render_solutions(state.worked_solutions),
+        _render_solutions(state),
         encoding="utf-8",
     )
     Path(output_paths["review_notes"]).write_text(_render_review_notes(state), encoding="utf-8")
@@ -51,7 +56,7 @@ def _render_overview(state: StudyGraphState) -> str:
         f"- Goal: {state.user_goal}\n"
         f"- Source documents: {len(state.normalized_docs)}\n"
         f"- Chunks: {len(state.chunks)}\n"
-        f"- Primary outputs: `content_map.md`, `formula_sheet.md`\n"
+        f"- Primary outputs: `content_map.md`, `formula_sheet.md`, `worked_examples.md`, `worked_solutions.md`\n"
         f"- Formulas: {len(state.formulas)}\n"
         f"- Examples: {len(state.examples)}\n"
         f"- Worked solutions: {len(state.worked_solutions)}\n\n"
@@ -147,16 +152,76 @@ def _render_formula_sheet(state: StudyGraphState) -> str:
     return "\n\n".join(sections) + "\n"
 
 
-def _render_solutions(solutions: list[WorkedSolution]) -> str:
+def _render_worked_examples(state: StudyGraphState) -> str:
+    if not state.examples:
+        return "# Worked Examples\n\nNo worked examples generated.\n"
+
+    formula_lookup = {formula.formula_id: formula.expression for formula in state.formulas}
+    sections = [
+        "# Worked Examples",
+        "",
+        "These study examples are grounded in the extracted formulas and nearby source context.",
+        "LLM enhancement is limited to improving clarity; the example structure remains deterministic in v0.1.",
+    ]
+    for example in state.examples:
+        formula_lines = "\n".join(
+            f"- `{formula_lookup.get(formula_id, formula_id)}` (`{formula_id}`)"
+            for formula_id in example.formula_ids
+        ) or "- None"
+        known_value_lines = "\n".join(
+            f"- `{symbol}` = {value}" for symbol, value in example.known_values.items()
+        ) or "- None listed"
+        sections.append(
+            "\n".join(
+                [
+                    f"## {example.title}",
+                    "",
+                    f"- Example ID: `{example.example_id}`",
+                    f"- Difficulty: {example.difficulty}",
+                    f"- Target symbol: `{example.target_symbol}`" if example.target_symbol else "- Target symbol: TODO",
+                    "",
+                    "### Target formulas",
+                    formula_lines,
+                    "",
+                    "### Problem Statement",
+                    example.problem_statement or example.prompt or "TODO",
+                    "",
+                    "### Known Values",
+                    known_value_lines,
+                    "",
+                    "### Why This Helps",
+                    f"- {example.study_value or 'TODO: explain why this example is useful for study.'}",
+                    "",
+                    "### Grounding Notes",
+                    f"- {example.reasoning_context or 'TODO: add grounding notes.'}",
+                    "",
+                    "### Sources",
+                    _render_references(example.references),
+                ]
+            )
+        )
+    return "\n\n".join(sections) + "\n"
+
+
+def _render_solutions(state: StudyGraphState) -> str:
+    solutions = state.worked_solutions
     if not solutions:
         return "# Worked Solutions\n\nNo worked solutions generated.\n"
 
+    example_lookup = {example.example_id: example for example in state.examples}
     sections = ["# Worked Solutions\n"]
     for solution in solutions:
+        example = example_lookup.get(solution.example_id)
         sections.append(
             "\n".join(
                 [
                     f"## {solution.solution_id}",
+                    "",
+                    f"- Example ID: `{solution.example_id}`",
+                    f"- Example Title: {example.title}" if example else "- Example Title: TODO",
+                    "",
+                    "### Problem Statement",
+                    example.problem_statement if example and example.problem_statement else "TODO",
                     "",
                     "### Plan Steps",
                     "\n".join(f"- {step}" for step in solution.plan_steps) or "- TODO",

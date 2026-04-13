@@ -97,17 +97,12 @@ def link_formulas_to_concepts_node(state: StudyGraphState) -> list[FormulaArtifa
     availability_warning = model_client.availability_warning()
     for formula in state.formulas:
         supporting_chunks = retrieve_relevant_chunks(formula.expression, state, top_k=2)
-        heuristic_linked = [
-            concept.concept_id
-            for concept in state.concepts
-            if concept.name.lower() in formula.expression.lower()
-            or any(
-                concept.name.lower() in (reference.excerpt or "").lower()
-                for reference in formula.references
-            )
-            or any(concept.name.lower() in chunk.text.lower() for chunk in supporting_chunks)
-        ]
-        linked = list(dict.fromkeys(heuristic_linked))
+        scored_concepts = _score_contextual_concepts(
+            state=state,
+            supporting_chunks=supporting_chunks,
+            formula=formula,
+        )
+        linked = [concept_id for concept_id, _score in scored_concepts[:2]]
         llm_payload, llm_warning = _generate_formula_enrichment(
             formula=formula,
             symbols=sorted(set(re.findall(r"[A-Za-z_][A-Za-z0-9_]*", formula.expression))),
@@ -120,6 +115,7 @@ def link_formulas_to_concepts_node(state: StudyGraphState) -> list[FormulaArtifa
                 existing_links=linked,
                 suggested_concepts=llm_payload.get("linked_concepts", []),
                 state=state,
+                allowed_concept_ids={concept_id for concept_id, _score in scored_concepts[:4]},
             )
         note_lines = [formula.notes]
         if availability_warning:
@@ -202,8 +198,8 @@ def _build_symbol_glossary(state: StudyGraphState) -> dict[str, str]:
 def _extract_conditions(expression: str, chunks) -> list[str]:
     conditions: list[str] = []
     seen = set()
-    for chunk in chunks:
-        for sentence in _sentence_candidates(chunk.text):
+    for local_context in _extract_formula_support_contexts(expression, chunks):
+        for sentence in _sentence_candidates(local_context):
             lowered = sentence.lower()
             if expression.lower() in lowered:
                 continue
@@ -245,7 +241,9 @@ def _generate_formula_enrichment(
         expression=formula.expression,
         symbols_csv=", ".join(symbols),
         concept_names_csv=", ".join(concept_names),
-        chunk_context=_render_chunk_context(supporting_chunks),
+        chunk_context=_render_chunk_context(
+            _extract_formula_support_contexts(formula.expression, supporting_chunks)
+        ),
     )
     return result.payload, result.warning
 
@@ -282,6 +280,7 @@ def _merge_concept_links(
     existing_links: list[str],
     suggested_concepts: Any,
     state: StudyGraphState,
+    allowed_concept_ids: set[str],
 ) -> list[str]:
     links = list(existing_links)
     if not isinstance(suggested_concepts, list):
@@ -290,8 +289,10 @@ def _merge_concept_links(
     concept_lookup = {concept.name.lower(): concept.concept_id for concept in state.concepts}
     for concept_name in suggested_concepts:
         concept_id = concept_lookup.get(str(concept_name).strip().lower())
-        if concept_id and concept_id not in links:
+        if concept_id and concept_id in allowed_concept_ids and concept_id not in links:
             links.append(concept_id)
+        if len(links) >= 2:
+            break
     return links
 
 
@@ -302,6 +303,98 @@ def _extract_note(llm_payload: dict[str, Any]) -> str | None:
 
 def _render_chunk_context(chunks) -> str:
     lines = []
-    for chunk in chunks:
-        lines.append(f"- {chunk.source_path} [{chunk.chunk_id}]: {chunk.text[:500].strip()}")
+    for index, chunk_text in enumerate(chunks):
+        if hasattr(chunk_text, "source_path"):
+            lines.append(
+                f"- {chunk_text.source_path} [{chunk_text.chunk_id}]: {chunk_text.text[:500].strip()}"
+            )
+        else:
+            lines.append(f"- local-context-{index}: {str(chunk_text)[:500].strip()}")
     return "\n".join(lines)
+
+
+def _extract_local_formula_contexts(expression: str, chunks) -> list[str]:
+    local_contexts: list[str] = []
+    for chunk in chunks:
+        lines = [line.strip() for line in chunk.text.splitlines() if line.strip()]
+        contexts = _slice_formula_contexts(expression, lines, trailing_window=2)
+        local_contexts.extend(contexts or [chunk.text])
+    return local_contexts or [chunk.text for chunk in chunks]
+
+
+def _extract_formula_support_contexts(expression: str, chunks) -> list[str]:
+    support_contexts: list[str] = []
+    for chunk in chunks:
+        lines = [line.strip() for line in chunk.text.splitlines() if line.strip()]
+        contexts = _slice_formula_contexts(expression, lines, trailing_window=6)
+        support_contexts.extend(contexts or [chunk.text])
+    return support_contexts or [chunk.text for chunk in chunks]
+
+
+def _slice_formula_contexts(expression: str, lines: list[str], *, trailing_window: int) -> list[str]:
+    if not lines:
+        return []
+
+    formula_indices = [index for index, line in enumerate(lines) if FORMULA_PATTERN.match(line)]
+    target_indices = [index for index in formula_indices if lines[index] == expression]
+    if not target_indices:
+        return []
+
+    sliced_contexts: list[str] = []
+    for target_index in target_indices:
+        previous_formula = max((idx for idx in formula_indices if idx < target_index), default=-1)
+        next_formula = min((idx for idx in formula_indices if idx > target_index), default=len(lines))
+        if previous_formula >= 0:
+            start = max(previous_formula + 2, target_index - 1)
+            heading_index = target_index - 2
+            if heading_index >= 0 and lines[heading_index].startswith("#"):
+                start = max(previous_formula + 2, heading_index)
+        else:
+            start = max(0, target_index - 3)
+        end = min(next_formula, target_index + trailing_window)
+        sliced_contexts.append("\n".join(lines[start:end]))
+    return sliced_contexts
+
+
+def _select_contextual_concepts(
+    *,
+    state: StudyGraphState,
+    supporting_chunks,
+    formula: FormulaArtifact,
+) -> list[str]:
+    return [concept_id for concept_id, _score in _score_contextual_concepts(
+        state=state,
+        supporting_chunks=supporting_chunks,
+        formula=formula,
+    )[:2]]
+
+
+def _score_contextual_concepts(
+    *,
+    state: StudyGraphState,
+    supporting_chunks,
+    formula: FormulaArtifact,
+) -> list[tuple[str, int]]:
+    scored: list[tuple[str, int]] = []
+    local_text = "\n".join(_extract_local_formula_contexts(formula.expression, supporting_chunks)).lower()
+    local_tokens = set(re.findall(r"[A-Za-z][A-Za-z'-]*", local_text))
+    expression_tokens = set(re.findall(r"[A-Za-z][A-Za-z'-]*", formula.expression.lower()))
+
+    for concept in state.concepts:
+        concept_name_lower = concept.name.lower()
+        concept_tokens = set(re.findall(r"[A-Za-z][A-Za-z'-]*", concept_name_lower))
+        if not concept_tokens:
+            continue
+
+        score = 0
+        if concept_name_lower in local_text:
+            score += 5
+        score += 2 * len(concept_tokens.intersection(local_tokens))
+        score += len(concept_tokens.intersection(expression_tokens))
+        if any(reference.chunk_id in {chunk.chunk_id for chunk in supporting_chunks} for reference in concept.references):
+            score += 1
+        if score >= 3:
+            scored.append((concept.concept_id, score))
+
+    scored.sort(key=lambda item: item[1], reverse=True)
+    return scored

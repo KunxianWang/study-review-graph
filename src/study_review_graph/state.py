@@ -74,7 +74,13 @@ class ExampleArtifact(BaseModel):
 
     example_id: str
     title: str
-    prompt: str
+    problem_statement: str = ""
+    formula_ids: list[str] = Field(default_factory=list)
+    difficulty: str = "introductory"
+    study_value: str = ""
+    known_values: dict[str, str] = Field(default_factory=dict)
+    target_symbol: str | None = None
+    prompt: str = ""
     formula_id: str | None = None
     reasoning_context: str = ""
     references: list[SourceReference] = Field(default_factory=list)
