@@ -5,9 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import typer
+from dotenv import load_dotenv
 from rich.console import Console
 
 from study_review_graph.graph import invoke_study_graph
+from study_review_graph.model_client import reset_model_client_cache, reset_model_response_cache
 from study_review_graph.state import RuntimeConfig, StudyGraphState
 
 app = typer.Typer(help="Build grounded study-review artifacts from course materials.")
@@ -21,6 +23,13 @@ def main() -> None:
 
 @app.command()
 def run(
+    env_file: Path | None = typer.Option(
+        None,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        help="Optional path to a local .env file with runtime model configuration.",
+    ),
     input_dir: Path = typer.Option(Path("examples/input"), exists=True, file_okay=False),
     output_dir: Path = typer.Option(Path("examples/output/run")),
     course_name: str = typer.Option("Untitled Course"),
@@ -30,6 +39,8 @@ def run(
     top_k: int = typer.Option(5, min=1),
 ) -> None:
     """Run the study review graph on a local input directory."""
+
+    _load_runtime_environment(env_file)
 
     initial_state = StudyGraphState(
         course_name=course_name,
@@ -62,3 +73,15 @@ def run(
 
 if __name__ == "__main__":
     app()
+
+
+def _load_runtime_environment(env_file: Path | None) -> None:
+    """Load runtime env vars from an optional local .env file."""
+
+    if env_file is not None:
+        load_dotenv(dotenv_path=env_file, override=False)
+    else:
+        load_dotenv(override=False)
+
+    reset_model_client_cache()
+    reset_model_response_cache()

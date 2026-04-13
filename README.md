@@ -2,6 +2,8 @@
 
 `study-review-graph` is a CLI-first, open-source study and review pipeline for course materials. It ingests local study materials such as PDFs, markdown notes, and plain text notes, then produces grounded study artifacts. The first polished v0.1 slice is centered on two showcase outputs: `content_map.md` and `formula_sheet.md`.
 
+The current version supports an OpenAI-compatible model endpoint, including Gemini served through an OpenAI-compatible base URL. LLM enhancement is intentionally limited to the concept-map and formula-sheet slice.
+
 The project exists to support deep understanding rather than shallow summarization. Instead of treating study material as a generic chat prompt, it organizes the work as a deterministic LangGraph workflow with shared state and structured intermediate artifacts. This makes the first version easier to inspect, test, and debug.
 
 ## Why LangGraph + LangChain + RAG
@@ -18,14 +20,14 @@ Version `0.1.0` now includes a clearer functional slice with deterministic defau
 - Local document ingestion for `.pdf`, `.md`, and `.txt`
 - Normalization and chunking
 - A simple retrieval layer with deterministic token-overlap scoring
-- A presentable `content_map.md` built from headings, section titles, and repeated source terms
-- A presentable `formula_sheet.md` built from heuristic formula extraction plus grounded source references
+- A presentable `content_map.md` built from headings, section titles, repeated source terms, and optionally LLM-enhanced grounded descriptions
+- A presentable `formula_sheet.md` built from heuristic formula extraction plus optionally LLM-enhanced explanations and assumptions
 - Deterministic example generation and worked-solution scaffolding
 - Deterministic review note generation
 - Quality review placeholders for groundedness, formula coverage, and explanation completeness
 - Markdown export with source traceability fields where possible
 
-This version is intentionally conservative. It is a runnable repository skeleton with one polished pipeline slice, not a finished pedagogical system. Model-backed reasoning, robust evaluation, and embedding-backed retrieval are still TODOs.
+This version is intentionally conservative. It is a runnable repository skeleton with one polished pipeline slice, not a finished pedagogical system. Targeted nodes can use an API-backed model when configured, but the repository still preserves a no-key heuristic fallback path.
 
 ## Planned Later
 
@@ -80,8 +82,21 @@ pip install -r requirements.txt
 
 Sample input material is provided under `examples/input/`.
 
+If your runtime variables are already exported in the shell, run:
+
 ```bash
 study-review-graph run ^
+  --input-dir examples/input ^
+  --output-dir examples/output/run ^
+  --course-name "Intro Mechanics" ^
+  --user-goal "Build deep understanding of the concepts, formulas, and worked examples."
+```
+
+If you want to load variables from a local `.env` file at runtime, use:
+
+```bash
+study-review-graph run ^
+  --env-file E:\PROJECT\AGENT\.env ^
   --input-dir examples/input ^
   --output-dir examples/output/run ^
   --course-name "Intro Mechanics" ^
@@ -91,8 +106,19 @@ study-review-graph run ^
 You can also run the module directly:
 
 ```bash
-python -m study_review_graph run --input-dir examples/input --output-dir examples/output/run
+python -m study_review_graph run --env-file E:\PROJECT\AGENT\.env --input-dir examples/input --output-dir examples/output/run
 ```
+
+The supported runtime variables are:
+
+- `OPENAI_API_KEY`
+- `OPENAI_API_BASE`
+- `OPENAI_MODEL`
+- `MODEL_PROVIDER`
+- `LANGSMITH_TRACING`
+- `LANGSMITH_API_KEY`
+- `LANGSMITH_PROJECT`
+- `TAVILY_API_KEY`
 
 ## Generated Outputs
 
@@ -130,13 +156,21 @@ These outputs are scaffolded for grounded study workflows and include source ref
 
 ## Current Limitations
 
-- Content map construction is heuristic and prioritizes headings plus repeated source terms.
+- Concept names are still heuristic and tied to headings plus repeated source terms.
+- Content-map descriptions can be LLM-enhanced, but only from retrieved local context.
 - Formula extraction is heuristic and line-based.
-- Symbol explanations are partially inferred from nearby glossary-style lines and otherwise left as TODOs.
-- Conditions and assumptions are extracted from nearby source sentences when possible, otherwise left as TODOs.
+- Symbol explanations and formula conditions can be LLM-enhanced from retrieved local context.
+- Linked concepts still start from heuristic matching and may be improved by the model when local evidence is clear.
 - Quality review uses placeholder checks rather than advanced evaluators.
 - Retrieval is deterministic token overlap, not embeddings.
 - PDF support requires the optional runtime dependencies to be installed.
+
+## Fallback Behavior
+
+- If model configuration is absent, the pipeline keeps using the heuristic path.
+- If model configuration is incomplete, the repository surfaces warnings and falls back safely.
+- If an API call fails, the affected nodes fall back to heuristic behavior instead of crashing the whole run.
+- CI and tests do not require live API access.
 
 ## Architecture Overview
 

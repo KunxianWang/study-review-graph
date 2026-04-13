@@ -9,6 +9,8 @@ The first polished v0.1 slice is centered on two primary outputs:
 - `content_map.md`
 - `formula_sheet.md`
 
+These outputs can be enhanced with an OpenAI-compatible model endpoint, including Gemini behind an OpenAI-compatible base URL, while preserving a heuristic fallback path.
+
 ## Design Principles
 
 - shared workflow state over ad hoc agent memory
@@ -48,8 +50,9 @@ This subgraph should not generate worked examples or narrative review notes.
 Current v0.1 behavior:
 
 - extraction is still heuristic
-- symbol explanations come from local glossary-style lines when available
-- conditions are pulled from nearby sentence cues when available, otherwise explicit TODO markers remain
+- symbol explanations start from local glossary-style lines and may be refined by a targeted model call
+- conditions start from nearby sentence cues and may be refined by a targeted model call
+- concept linking remains heuristic-first, with optional model-assisted suggestions constrained to known concept names
 
 ### Solution Subgraph
 
@@ -85,6 +88,24 @@ The current polished slice uses this retrieval layer in two visible ways:
 - grounding concept descriptions for `content_map.md`
 - pulling nearby support for formula conditions and concept links in `formula_sheet.md`
 
+## Targeted Model Integration
+
+The repository now includes a small model client layer for OpenAI-compatible endpoints.
+
+Design constraints:
+
+- environment-driven runtime configuration
+- no mandatory model access for tests or local fallback runs
+- model enhancement is limited to a few targeted nodes
+- the graph remains a deterministic pipeline, not a free-form agent system
+
+Current LLM-enhanced nodes:
+
+- content-map description generation
+- formula-sheet symbol explanation refinement
+- formula-sheet condition refinement
+- formula-sheet concept-link suggestion
+
 ## Primary Outputs
 
 ### `content_map.md`
@@ -95,6 +116,8 @@ This file is intended to be a readable study artifact rather than a debug dump. 
 - short grounded description
 - linked formulas when available
 - source references
+
+In v0.1, concept names remain source-tied and heuristic. Only the description field may be LLM-enhanced.
 
 ### `formula_sheet.md`
 
@@ -107,6 +130,8 @@ This file is intended to be a readable formula study sheet. Each entry includes:
 - linked concepts when available
 - source references
 - explicit TODO markers where interpretation remains incomplete
+
+In v0.1, formula extraction remains heuristic. The model only enhances interpretation around the extracted formula.
 
 ## Extension Points
 
