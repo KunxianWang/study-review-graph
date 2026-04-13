@@ -40,3 +40,20 @@ def test_model_client_reports_safe_warning_for_partial_config(monkeypatch):
 
     reset_model_client_cache()
     reset_model_response_cache()
+
+
+def test_model_provider_openai_is_accepted_alias(monkeypatch):
+    monkeypatch.setenv("MODEL_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "placeholder-key")
+    monkeypatch.setenv("OPENAI_API_BASE", "https://example.test/v1")
+    monkeypatch.setenv("OPENAI_MODEL", "placeholder-model")
+    reset_model_client_cache()
+    reset_model_response_cache()
+
+    config = load_model_runtime_config()
+
+    assert config.provider == "openai"
+    assert config.configuration_warning() is None
+
+    reset_model_client_cache()
+    reset_model_response_cache()

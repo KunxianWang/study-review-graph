@@ -109,6 +109,8 @@ You can also run the module directly:
 python -m study_review_graph run --env-file E:\PROJECT\AGENT\.env --input-dir examples/input --output-dir examples/output/run
 ```
 
+When `--env-file` is provided explicitly, values in that file take precedence over stale shell environment variables. This helps avoid confusing runtime mismatches such as an old `MODEL_PROVIDER` still being present in the shell.
+
 The supported runtime variables are:
 
 - `OPENAI_API_KEY`
@@ -119,6 +121,13 @@ The supported runtime variables are:
 - `LANGSMITH_API_KEY`
 - `LANGSMITH_PROJECT`
 - `TAVILY_API_KEY`
+
+Accepted `MODEL_PROVIDER` values for the current OpenAI-compatible client path are:
+
+- `openai`
+- `openai_compatible`
+- `gemini`
+- `gemini_openai_compatible`
 
 ## Generated Outputs
 

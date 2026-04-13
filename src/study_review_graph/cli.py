@@ -76,10 +76,14 @@ if __name__ == "__main__":
 
 
 def _load_runtime_environment(env_file: Path | None) -> None:
-    """Load runtime env vars from an optional local .env file."""
+    """Load runtime env vars from an optional local .env file.
+
+    An explicit env file should override stale shell variables so a deliberate
+    runtime config wins over whatever happened to already be exported.
+    """
 
     if env_file is not None:
-        load_dotenv(dotenv_path=env_file, override=False)
+        load_dotenv(dotenv_path=env_file, override=True)
     else:
         load_dotenv(override=False)
 

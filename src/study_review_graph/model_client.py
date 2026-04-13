@@ -10,7 +10,7 @@ from functools import lru_cache
 from typing import Any
 
 
-SUPPORTED_PROVIDERS = {"", "openai_compatible", "gemini", "gemini_openai_compatible"}
+SUPPORTED_PROVIDERS = {"", "openai", "openai_compatible", "gemini", "gemini_openai_compatible"}
 
 
 @dataclass(frozen=True)
