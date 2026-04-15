@@ -61,31 +61,31 @@ class SupervisorAgent:
                 rationale="检测到 practice_id 和作答文本，优先走答案批改路径。",
             )
 
-        if any(keyword in normalized for keyword in ("check", "批改", "作答", "answer", "评分")):
+        if _looks_like_answer_check(normalized):
             return RoutedRequest(
                 intent="answer_check",
                 selected_agent="AnswerCriticAgent",
                 rationale="请求里包含答案检查类关键词。",
             )
-        if any(keyword in normalized for keyword in ("practice", "练习", "quiz", "刷题", "题目")):
-            return RoutedRequest(
-                intent="practice_request",
-                selected_agent="PracticeAgent",
-                rationale="请求更像是在索取或浏览练习题。",
-            )
-        if any(keyword in normalized for keyword in ("example", "例题", "walkthrough", "solution", "推导", "演算")):
+        if _looks_like_example_help(normalized):
             return RoutedRequest(
                 intent="example_help",
                 selected_agent="ExampleSolutionAgent",
                 rationale="请求聚焦于例题、步骤或解题讲解。",
             )
-        if any(keyword in normalized for keyword in ("formula", "公式", "equation", "condition", "symbol", "符号", "假设")):
+        if _looks_like_practice_request(normalized):
+            return RoutedRequest(
+                intent="practice_request",
+                selected_agent="PracticeAgent",
+                rationale="请求更像是在索取或浏览练习题。",
+            )
+        if _looks_like_formula_help(normalized):
             return RoutedRequest(
                 intent="formula_help",
                 selected_agent="ConceptFormulaAgent",
                 rationale="请求聚焦于公式、条件或符号解释。",
             )
-        if any(keyword in normalized for keyword in ("review", "回看", "复习建议", "review next", "下一步")):
+        if _looks_like_review_guidance(normalized):
             return RoutedRequest(
                 intent="review_guidance",
                 selected_agent="ConceptFormulaAgent",
@@ -264,8 +264,43 @@ class AnswerCriticAgent:
         practice_id: str | None,
         user_answer: str | None,
     ) -> AgentSessionResult:
-        if not practice_id or not user_answer:
-            raise ValueError("answer_check intent requires both practice_id and user answer.")
+        if not practice_id and not user_answer:
+            return AgentSessionResult(
+                detected_intent="answer_check",
+                selected_agent="AnswerCriticAgent",
+                response_title="作答反馈",
+                response_lines=[
+                    "我可以帮你批改，但还缺少两项关键信息。",
+                    "请先告诉我你要检查的 `practice_id`，再贴出你的作答内容。",
+                    "如果你已经有题号，可以直接说：帮我批改 `practice-formula-0`，并附上答案。",
+                ],
+                recommended_next_action="先提供 practice_id 和你的答案，我再按当前 grounded 题目给你逐项反馈。",
+            )
+        if not practice_id:
+            return AgentSessionResult(
+                detected_intent="answer_check",
+                selected_agent="AnswerCriticAgent",
+                response_title="作答反馈",
+                response_lines=[
+                    "我已经识别到你想要批改答案，但还不知道是哪一道题。",
+                    "请补充 `practice_id`，例如 `practice-formula-0`。",
+                    "拿到题号后，我会按对应练习题、公式和 worked solution 给你反馈。",
+                ],
+                recommended_next_action="先提供 practice_id，再提交答案文本。",
+            )
+        if not user_answer:
+            return AgentSessionResult(
+                detected_intent="answer_check",
+                selected_agent="AnswerCriticAgent",
+                response_title="作答反馈",
+                response_lines=[
+                    f"我已经定位到题目 `{practice_id}`，现在还缺少你的作答内容。",
+                    "请直接贴出你的答案，或者用 `--answer-file` 提供答案文本。",
+                    "我会基于这道题关联的概念、公式和 worked solution 给你 grounded feedback。",
+                ],
+                recommended_next_action=f"先补充 `{practice_id}` 的答案内容，我再继续批改。",
+                selected_practice_id=practice_id,
+            )
 
         feedback, warnings = check_answer_node(
             state,
@@ -303,13 +338,14 @@ def run_study_session(
 ) -> tuple[AgentSessionResult, RoutedRequest]:
     """Run one lightweight study session over the current grounded artifacts."""
 
+    effective_practice_id = practice_id or _extract_practice_id_from_request(state, request)
     supervisor = SupervisorAgent()
-    routed = supervisor.route(request=request, practice_id=practice_id, user_answer=user_answer)
+    routed = supervisor.route(request=request, practice_id=effective_practice_id, user_answer=user_answer)
 
     if routed.selected_agent == "AnswerCriticAgent":
         result = AnswerCriticAgent().handle(
             state=state,
-            practice_id=practice_id,
+            practice_id=effective_practice_id,
             user_answer=user_answer,
         )
     elif routed.selected_agent == "PracticeAgent":
@@ -383,6 +419,79 @@ def _practice_type_from_request(request: str) -> str | None:
     if any(keyword in normalized for keyword in ("计算", "calculation", "算")):
         return "worked_calculation"
     return None
+
+
+def _extract_practice_id_from_request(state: StudyGraphState, request: str) -> str | None:
+    normalized = request.lower()
+    for item in state.practice_items:
+        if item.practice_id and item.practice_id.lower() in normalized:
+            return item.practice_id
+    return None
+
+
+def _looks_like_answer_check(normalized_request: str) -> bool:
+    keywords = (
+        "check my answer",
+        "check-answer",
+        "批改",
+        "作答",
+        "answer",
+        "评分",
+        "看看",
+        "对不对",
+        "改一下",
+    )
+    return any(keyword in normalized_request for keyword in keywords)
+
+
+def _looks_like_example_help(normalized_request: str) -> bool:
+    direct_keywords = (
+        "example",
+        "例题",
+        "walkthrough",
+        "step-by-step",
+        "step by step",
+        "solution",
+        "推导",
+        "演算",
+        "讲一下这道题",
+        "这题怎么做",
+        "解释这个例题",
+        "walk me through this problem",
+        "show me an example using this formula",
+        "公式例题怎么做",
+    )
+    if any(keyword in normalized_request for keyword in direct_keywords):
+        return True
+    has_problem_reference = any(keyword in normalized_request for keyword in ("这题", "题怎么做", "problem", "题目怎么做"))
+    has_walkthrough_intent = any(keyword in normalized_request for keyword in ("怎么做", "讲", "explain", "walk", "solution", "步骤"))
+    return has_problem_reference and has_walkthrough_intent
+
+
+def _looks_like_formula_help(normalized_request: str) -> bool:
+    keywords = ("formula", "公式", "equation", "condition", "symbol", "symbols", "符号", "假设", "什么时候用", "条件是什么")
+    return any(keyword in normalized_request for keyword in keywords)
+
+
+def _looks_like_practice_request(normalized_request: str) -> bool:
+    keywords = (
+        "practice",
+        "练习",
+        "quiz",
+        "刷题",
+        "practice problem",
+        "generate a quiz",
+        "give me a practice problem",
+        "给我出一道",
+        "来一道练习",
+        "出一道练习",
+    )
+    return any(keyword in normalized_request for keyword in keywords)
+
+
+def _looks_like_review_guidance(normalized_request: str) -> bool:
+    keywords = ("review", "回看", "复习建议", "review next", "下一步", "接下来复习什么")
+    return any(keyword in normalized_request for keyword in keywords)
 
 
 def _collect_reference_groups(reference_groups: list[list[SourceReference]]) -> list[SourceReference]:

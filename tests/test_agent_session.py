@@ -23,6 +23,27 @@ def test_supervisor_routes_formula_help_deterministically():
     assert routed.selected_agent == "ConceptFormulaAgent"
 
 
+def test_supervisor_routes_problem_walkthrough_to_example_agent():
+    routed = SupervisorAgent().route(request="讲一下这道题")
+
+    assert routed.intent == "example_help"
+    assert routed.selected_agent == "ExampleSolutionAgent"
+
+
+def test_supervisor_routes_how_to_solve_this_problem_to_example_agent():
+    routed = SupervisorAgent().route(request="这题怎么做")
+
+    assert routed.intent == "example_help"
+    assert routed.selected_agent == "ExampleSolutionAgent"
+
+
+def test_supervisor_routes_formula_example_request_to_example_agent():
+    routed = SupervisorAgent().route(request="用这个公式给我讲一道例题")
+
+    assert routed.intent == "example_help"
+    assert routed.selected_agent == "ExampleSolutionAgent"
+
+
 def test_supervisor_routes_practice_request_deterministically():
     routed = SupervisorAgent().route(request="给我来一道练习题")
 
@@ -69,6 +90,35 @@ def test_study_session_routes_to_answer_critic():
     assert session_result.answer_feedback is not None
     assert session_result.detected_intent == "answer_check"
     assert session_result.selected_practice_id == "practice-formula-0"
+
+
+def test_study_session_returns_graceful_feedback_when_answer_missing():
+    state = _build_state()
+
+    session_result, routed = run_study_session(
+        state=state,
+        request="帮我批改 practice-formula-0",
+    )
+
+    assert routed.selected_agent == "AnswerCriticAgent"
+    assert session_result.detected_intent == "answer_check"
+    assert session_result.selected_practice_id == "practice-formula-0"
+    assert any("缺少你的作答内容" in line for line in session_result.response_lines)
+
+
+def test_study_session_returns_graceful_feedback_when_practice_id_missing():
+    state = _build_state()
+
+    session_result, routed = run_study_session(
+        state=state,
+        request="check my answer",
+        user_answer="我觉得应该用 F = m * a。",
+    )
+
+    assert routed.selected_agent == "AnswerCriticAgent"
+    assert session_result.detected_intent == "answer_check"
+    assert session_result.selected_practice_id is None
+    assert any("请补充 `practice_id`" in line for line in session_result.response_lines)
 
 
 def test_agent_session_markdown_export_is_structured():
