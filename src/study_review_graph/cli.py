@@ -77,10 +77,9 @@ def run(
     for name, path in final_state.output_paths.items():
         console.print(f"- {name}: {path}")
 
-    combined_warnings = list(final_state.warnings) + list(session_result.warnings)
-    if combined_warnings:
+    if final_state.warnings:
         console.print("[yellow]Warnings:[/yellow]")
-        for warning in combined_warnings:
+        for warning in final_state.warnings:
             console.print(f"- {warning}")
 
     if final_state.errors:
