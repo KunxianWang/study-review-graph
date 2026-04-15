@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "study-review-graph"
-version = "0.1.0"
+version = "0.1.1"
 description = "A CLI-first study and review workflow for course materials using LangGraph, LangChain, and grounded generation."
 readme = "README.md"
 requires-python = ">=3.11"
