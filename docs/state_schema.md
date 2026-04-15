@@ -195,6 +195,26 @@ Current v0.1 practice-item fields include:
 
 This model is intentionally compact. It supports the new practice workflow slice without introducing a separate tutor or planner subsystem.
 
+### `AnswerFeedback`
+
+Current v0.1 answer-feedback fields include:
+
+- `practice_id`
+- `question_type`
+- `result_label`
+- `question_prompt`
+- `user_answer`
+- `concept_ids`
+- `formula_ids`
+- `linked_examples`
+- `linked_solutions`
+- `key_issues`
+- `correct_approach`
+- `review_guidance`
+- `references`
+
+This model is used by the `check-answer` utility path. It is not currently stored back into `StudyGraphState`; instead, it is generated on demand from the current grounded artifacts.
+
 ## Notes
 
 - The schema is designed to evolve, but changes should remain additive where possible.

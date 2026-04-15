@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 StudyNoteMode = Literal["full_review", "deep_dive", "exam_sprint"]
 PracticeItemType = Literal["concept_question", "formula_application", "worked_calculation"]
+FeedbackLabel = Literal["correct", "partially_correct", "needs_improvement"]
 
 
 class SourceReference(BaseModel):
@@ -128,6 +129,24 @@ class PracticeItem(BaseModel):
     prompt: str
     hint: str = ""
     expected_answer: str = ""
+    references: list[SourceReference] = Field(default_factory=list)
+
+
+class AnswerFeedback(BaseModel):
+    """Grounded answer-check result for a single practice item."""
+
+    practice_id: str
+    question_type: PracticeItemType
+    result_label: FeedbackLabel
+    question_prompt: str
+    user_answer: str
+    concept_ids: list[str] = Field(default_factory=list)
+    formula_ids: list[str] = Field(default_factory=list)
+    linked_examples: list[str] = Field(default_factory=list)
+    linked_solutions: list[str] = Field(default_factory=list)
+    key_issues: list[str] = Field(default_factory=list)
+    correct_approach: list[str] = Field(default_factory=list)
+    review_guidance: list[str] = Field(default_factory=list)
     references: list[SourceReference] = Field(default_factory=list)
 
 

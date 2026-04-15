@@ -6,7 +6,8 @@ from pathlib import Path
 import re
 
 from study_review_graph.markdown_math import display_math, inline_math, symbol_math
-from study_review_graph.state import ExampleArtifact, FormulaArtifact, PracticeItem, SourceReference, StudyGraphState, WorkedSolution
+from study_review_graph.nodes.answer_check import feedback_label_zh
+from study_review_graph.state import AnswerFeedback, ExampleArtifact, FormulaArtifact, PracticeItem, SourceReference, StudyGraphState, WorkedSolution
 
 
 def export_markdown_bundle(state: StudyGraphState) -> dict[str, str]:
@@ -50,6 +51,19 @@ def export_markdown_bundle(state: StudyGraphState) -> dict[str, str]:
     )
 
     return output_paths
+
+
+def export_answer_feedback_markdown(
+    feedback: AnswerFeedback,
+    *,
+    output_dir: str | Path,
+) -> str:
+    """Write answer feedback markdown and return the output path."""
+
+    output_path = Path(output_dir) / "answer_feedback.md"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(_render_answer_feedback(feedback), encoding="utf-8")
+    return str(output_path)
 
 
 def _render_overview(state: StudyGraphState) -> str:
@@ -555,3 +569,36 @@ def _practice_type_label(question_type: str) -> str:
         "worked_calculation": "典型计算题",
     }
     return labels.get(question_type, question_type)
+
+
+def _render_answer_feedback(feedback: AnswerFeedback) -> str:
+    return "\n".join(
+        [
+            "# 作答反馈",
+            "",
+            f"- Practice ID: `{feedback.practice_id}`",
+            f"- 题型：{_practice_type_label(feedback.question_type)}",
+            "",
+            "## 题目",
+            feedback.question_prompt or "TODO",
+            "",
+            "## 你的答案",
+            feedback.user_answer or "TODO",
+            "",
+            "## 结果判断",
+            f"- {feedback_label_zh(feedback.result_label)}",
+            "",
+            "## 关键问题",
+            _render_bullets(feedback.key_issues),
+            "",
+            "## 正确思路",
+            _render_bullets(feedback.correct_approach),
+            "",
+            "## 建议回看",
+            _render_bullets(feedback.review_guidance),
+            "",
+            "## 来源",
+            _render_references(feedback.references),
+            "",
+        ]
+    )

@@ -37,6 +37,7 @@ The current polished slices are:
 1. content and formula understanding via `content_map.md` and `formula_sheet.md`
 2. example and solution learning support via `worked_examples.md` and `worked_solutions.md`
 3. compact practice generation via `practice_set.md`
+4. single-item answer checking via `answer_feedback.md`
 
 ## Study Modes
 
@@ -166,6 +167,13 @@ Practice-set flag:
 - `--include-practice-set/--skip-practice-set`
   Defaults to enabled. Normal runs now generate `practice_set.md` unless you explicitly skip it.
 
+Answer-check command inputs:
+
+- `check-answer`
+- `--practice-id`
+- `--answer` or `--answer-file`
+- plus the same grounding options such as `--input-dir`, `--output-dir`, `--study-mode`, and `--env-file`
+
 ## Generated Outputs
 
 The primary showcase outputs are:
@@ -229,9 +237,14 @@ The exporter also keeps these additional files:
 - `review_notes.md`
 - `quality_report.md`
 
+The answer-check utility path also writes:
+
+- `answer_feedback.md`
+
 These outputs are scaffolded for grounded study workflows and include source references whenever the current stage can preserve them.
 `review_notes.md` keeps the same filename, but its internal structure now changes with the selected study mode and follows the local skill templates in `.agents/skills/review-material-generator/`.
 `practice_set.md` reuses the current grounded artifacts rather than generating from a disconnected quiz subsystem.
+`answer_feedback.md` reuses the current practice item, linked formulas, linked concepts, worked examples, worked solutions, and review notes to produce a study-oriented feedback note.
 
 ## Current Limitations
 
@@ -244,6 +257,7 @@ These outputs are scaffolded for grounded study workflows and include source ref
 - Worked-solution generation is still conservative. It can improve step wording with the model, but direct arithmetic is only attempted for simple solved-form formulas.
 - Review-note section order is skill-guided, but the actual section content is still assembled from existing concepts, formulas, examples, and solutions rather than a broader pedagogical planner.
 - Practice-item selection is deterministic first. The model can refine question wording, hints, and answer clarity, but it does not invent new unsupported topics.
+- Answer checking is heuristic and study-oriented. It can detect broadly correct answers, partial answers, wrong-formula drift, and missing reasoning steps, but it is not a theorem prover or a mathematically complete grader.
 - `deep_dive` target selection is still heuristic when `--focus-topic` is omitted or cannot be matched cleanly.
 - Quality review uses placeholder checks rather than advanced evaluators.
 - Retrieval is deterministic token overlap, not embeddings.
@@ -303,6 +317,12 @@ Full sample pipeline with practice generation enabled:
 
 ```bash
 study-review-graph run --input-dir examples/input --output-dir examples/output/run --study-mode full_review --include-practice-set
+```
+
+Check one practice answer:
+
+```bash
+study-review-graph check-answer --input-dir examples/input --output-dir examples/output/check_answer_run --practice-id practice-formula-0 --answer "先看题目是不是在讨论净力、质量和加速度的关系，再确认质量可以视为常量，所以应该用 F = m * a。"
 ```
 
 See [docs/architecture.md](docs/architecture.md) for more detail.

@@ -11,6 +11,7 @@ The current polished v0.1 foundation is centered on four primary outputs:
 - `worked_examples.md`
 - `worked_solutions.md`
 - `practice_set.md`
+- `answer_feedback.md`
 
 These outputs can be enhanced with an OpenAI-compatible model endpoint, including Gemini behind an OpenAI-compatible base URL, while preserving a heuristic fallback path.
 The wording and section structure of learning artifacts are also guided by a local repository skill at `.agents/skills/review-material-generator/`. This affects output style and pedagogical order, not the graph topology.
@@ -138,6 +139,17 @@ The review-note node now maps that skill into three explicit output modes:
 
 This guidance is deliberately applied inside the existing nodes and exporters instead of introducing a separate agent loop or a new orchestration layer.
 
+## Answer-Check Utility Path
+
+The repository now also includes a small answer-checking utility path. This is deliberately not part of the main LangGraph graph. Instead, the CLI:
+
+1. rebuilds the current grounded study state from the input materials
+2. locates one `practice_id`
+3. compares the user's answer against the linked grounded artifacts
+4. writes `answer_feedback.md`
+
+This keeps the main graph readable while still closing the loop from study notes to practice to feedback.
+
 ## Primary Outputs
 
 ### `content_map.md`
@@ -214,6 +226,23 @@ This file turns the current study artifacts into a compact practice workflow. It
 - review notes for final reminders and mistake checks
 
 In v0.1, item selection remains deterministic and close to existing grounded artifacts. Optional model calls only refine wording, hints, and answer clarity.
+
+### `answer_feedback.md`
+
+This file provides grounded feedback for one practice item at a time. It is built from:
+
+- the selected `practice_item`
+- linked concepts
+- linked formulas
+- linked worked examples
+- linked worked solutions
+- review-note reminders
+
+In v0.1, feedback classification is deterministic first. Optional model calls only refine the Chinese explanation of:
+
+- key issues
+- correct approach
+- what to review next
 
 ## Extension Points
 
