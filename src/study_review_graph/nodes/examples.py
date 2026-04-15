@@ -19,6 +19,14 @@ DEFAULT_KNOWN_VALUES = {
     "v": "4 m/s",
     "x": "5 m",
 }
+CHINESE_TERM_MAP = {
+    "acceleration": "加速度",
+    "force": "力",
+    "kinetic energy": "动能",
+    "mass": "质量",
+    "net force": "净力",
+    "velocity": "速度",
+}
 
 
 def generate_examples_node(state: StudyGraphState) -> tuple[list[ExampleArtifact], list[str]]:
@@ -71,11 +79,12 @@ def _build_formula_example(
         + [_concept_references(concept_id, state) for concept_id in formula.concept_links]
     )
     reasoning_bits = [
-        f"Centered on `{formula.expression}`.",
-        f"Target symbol: `{target_symbol}`." if target_symbol else "TODO: confirm the target symbol.",
+        f"围绕 `{formula.expression}` 这一核心关系式构造。",
+        f"目标符号是 `{target_symbol}`。" if target_symbol else "TODO: 需要确认目标符号。",
+        "如果原材料没有给出完整数值例题，这里采用最小可算例题补全中间步骤。",
     ]
     if formula.conditions:
-        reasoning_bits.append(f"Local condition cue: {formula.conditions[0]}")
+        reasoning_bits.append(f"原材料中的条件提醒：{formula.conditions[0]}")
     return ExampleArtifact(
         example_id=f"example-{index}",
         title=title,
@@ -114,8 +123,9 @@ def _generate_example_enrichment(
     result = model_client.generate_json(
         task_name=f"worked example '{draft.example_id}'",
         system_prompt=(
-            "You are refining a grounded study example. "
+            "You are refining a grounded Chinese study example. "
             "Use only the provided local excerpts, formula metadata, and draft example. "
+            "Preserve the course notation and keep the example close to the source material. "
             "Do not invent unrelated topics or unsupported facts. "
             "Return JSON with keys: title, difficulty, problem_statement, study_value."
         ),
@@ -134,7 +144,8 @@ def _generate_example_enrichment(
             "Retrieved local excerpts:\n"
             f"{_render_chunk_context(supporting_chunks)}\n\n"
             "Refine the example to make it clearer and more useful for study. "
-            "Keep it tied to the same formula. "
+            "Write the output in Chinese by default. "
+            "Keep it tied to the same formula and preserve course-native notation. "
             "If the local evidence is weak, preserve a cautious wording."
         ),
     )
@@ -159,20 +170,20 @@ def _build_concept_fallback_examples(state: StudyGraphState) -> list[ExampleArti
     examples: list[ExampleArtifact] = []
     for index, concept in enumerate(state.concepts[:3]):
         problem_statement = (
-            f"Explain a concrete study scenario for '{concept.name}' using only the provided materials. "
-            "Identify what is known, what should be interpreted, and which source idea supports the explanation."
+            f"请围绕“{concept.name}”写一个最小但完整的复习例题。"
+            "先说明题目在练什么，再指出已知信息、要解释的量，以及它依赖的原材料依据。"
         )
         examples.append(
             ExampleArtifact(
                 example_id=f"example-concept-{index}",
-                title=f"Concept application: {concept.name}",
+                title=f"例题：{concept.name}",
                 problem_statement=problem_statement,
                 difficulty="introductory",
                 study_value=(
-                    f"Useful for practicing how '{concept.name}' appears in the local materials even when no formula was extracted."
+                    f"适合在没有稳定提取公式时，先练习“{concept.name}”在原材料中的具体含义。"
                 ),
                 prompt=problem_statement,
-                reasoning_context="Fallback concept-driven example because no formulas were extracted.",
+                reasoning_context="当前没有稳定提取到公式，因此退回到概念驱动的复习例题。",
                 references=concept.references,
             )
         )
@@ -208,10 +219,10 @@ def _concept_references(concept_id: str, state: StudyGraphState) -> list[SourceR
 
 def _example_title(formula: FormulaArtifact, concept_names: list[str], target_symbol: str | None) -> str:
     if concept_names:
-        return f"{concept_names[0]} worked example"
+        return f"例题：{concept_names[0]}"
     if target_symbol:
-        return f"Solve for {target_symbol} with {formula.expression}"
-    return f"Worked example for {formula.expression}"
+        return f"例题：利用 {formula.expression} 求 {target_symbol}"
+    return f"例题：{formula.expression}"
 
 
 def _problem_statement(
@@ -224,31 +235,31 @@ def _problem_statement(
         f"{_symbol_label(symbol, formula)} = {value}"
         for symbol, value in known_values.items()
     ]
-    concept_prefix = f"In a study example about {concept_names[0]}, " if concept_names else ""
     if target_symbol and known_bits:
         return (
-            f"{concept_prefix}use `{formula.expression}` to find {_symbol_label(target_symbol, formula)} "
-            f"when {', '.join(known_bits)}."
+            f"{'围绕 ' + concept_names[0] + '，' if concept_names else ''}"
+            f"已知 {', '.join(known_bits)}，"
+            f"请利用 `{formula.expression}` 求 {_symbol_label(target_symbol, formula)}。"
         )
     return (
-        f"{concept_prefix}use `{formula.expression}` to explain how the listed quantities relate "
-        "in a concrete study example."
+        f"{'围绕 ' + concept_names[0] + '，' if concept_names else ''}"
+        f"请利用 `{formula.expression}` 说明题目中的量之间如何关联，并写出完整的解题思路。"
     )
 
 
 def _study_value(formula: FormulaArtifact, concept_names: list[str], target_symbol: str | None) -> str:
-    concept_text = concept_names[0] if concept_names else "the local study material"
+    concept_text = concept_names[0] if concept_names else "当前材料"
     if target_symbol:
         return (
-            f"Useful for practicing how {concept_text} turns the known quantities into {_symbol_label(target_symbol, formula)}."
+            f"这题适合复习 {concept_text} 如何把已知量一步步转成 {_symbol_label(target_symbol, formula)}，避免只会背公式不会落题。"
         )
-    return f"Useful for checking how {formula.expression} appears inside {concept_text}."
+    return f"这题适合检查 {formula.expression} 在 {concept_text} 里的使用方式。"
 
 
 def _symbol_label(symbol: str, formula: FormulaArtifact) -> str:
     meaning = formula.symbol_explanations.get(symbol, "").strip()
     if meaning and "TODO:" not in meaning:
-        return meaning
+        return CHINESE_TERM_MAP.get(meaning.lower(), meaning)
     return symbol
 
 

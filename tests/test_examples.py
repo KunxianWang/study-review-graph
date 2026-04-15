@@ -56,8 +56,9 @@ def test_generate_examples_builds_grounded_formula_example():
     assert example.difficulty == "introductory"
     assert example.known_values == {"m": "2 kg", "a": "3 m/s^2"}
     assert "F = m * a" in example.problem_statement
-    assert "net force" in example.problem_statement
-    assert example.study_value
+    assert "净力" in example.problem_statement
+    assert "这题适合复习" in example.study_value
+    assert "最小可算例题" in example.reasoning_context
     assert example.references
 
 
@@ -69,10 +70,10 @@ def test_generate_examples_uses_llm_refinement_when_available(monkeypatch):
         def generate_json(self, **_kwargs):
             return ModelCallResult(
                 payload={
-                    "title": "Newton's second law practice",
+                    "title": "例题：牛顿第二定律",
                     "difficulty": "introductory",
-                    "problem_statement": "Use `F = m * a` to find the net force for mass 2 kg and acceleration 3 m/s^2.",
-                    "study_value": "Useful for practicing a direct substitution into Newton's second law.",
+                    "problem_statement": "已知质量 2 kg、加速度 3 m/s^2，请利用 `F = m * a` 求净力。",
+                    "study_value": "适合练习牛顿第二定律中的直接代入。",
                 }
             )
 
@@ -101,6 +102,6 @@ def test_generate_examples_uses_llm_refinement_when_available(monkeypatch):
 
     examples, _warnings = generate_examples_node(state)
 
-    assert examples[0].title == "Newton's second law practice"
-    assert examples[0].problem_statement.startswith("Use `F = m * a`")
-    assert examples[0].study_value.startswith("Useful for practicing")
+    assert examples[0].title == "例题：牛顿第二定律"
+    assert examples[0].problem_statement.startswith("已知质量 2 kg")
+    assert examples[0].study_value.startswith("适合练习")

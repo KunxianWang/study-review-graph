@@ -12,6 +12,7 @@ The current polished v0.1 foundation is centered on four primary outputs:
 - `worked_solutions.md`
 
 These outputs can be enhanced with an OpenAI-compatible model endpoint, including Gemini behind an OpenAI-compatible base URL, while preserving a heuristic fallback path.
+The wording and section structure of learning artifacts are also guided by a local repository skill at `.agents/skills/review-material-skill/`. This affects output style and pedagogical order, not the graph topology.
 
 ## Design Principles
 
@@ -116,6 +117,16 @@ Current LLM-enhanced nodes:
 - formula-sheet concept-link suggestion
 - worked-example wording refinement
 - worked-solution wording refinement
+
+## Local Skill Guidance
+
+The repository includes a local study-material skill that acts as an operating guide for learning artifacts. In the current implementation it mainly affects:
+
+- `review_notes.md` section order and study-note framing
+- `worked_examples.md` wording, study value, and Chinese-first presentation
+- `worked_solutions.md` ordering around intuition, formula choice, substitution, interpretation, and mistakes
+
+This guidance is deliberately applied inside the existing nodes and exporters instead of introducing a separate agent loop or a new orchestration layer.
 
 ## Primary Outputs
 

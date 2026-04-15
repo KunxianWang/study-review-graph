@@ -22,6 +22,14 @@ SAFE_OPERATORS = {
     ast.USub: operator.neg,
     ast.UAdd: operator.pos,
 }
+CHINESE_TERM_MAP = {
+    "acceleration": "加速度",
+    "force": "力",
+    "kinetic energy": "动能",
+    "mass": "质量",
+    "net force": "净力",
+    "velocity": "速度",
+}
 
 
 def plan_solution_steps_node(state: StudyGraphState) -> list[WorkedSolution]:
@@ -184,24 +192,24 @@ def _build_plan_steps(
 ) -> list[str]:
     if not formula:
         return [
-            "Read the example carefully and identify the main study idea.",
-            "List the known information from the problem statement.",
-            "Explain the relationship in words before trying to compute anything.",
-            "Mark any missing assumptions with TODO notes.",
+            "先读题，判断这道题到底在练哪个概念或方法。",
+            "列出题目已经明确给出的信息。",
+            "先用文字解释关系，再决定要不要代入计算。",
+            "如果原材料缺少条件，就明确写出 TODO 提醒。",
         ]
 
     concept_names = _linked_concept_names(formula, state)
     target_label = _target_label(example, formula)
     plan_steps = [
-        f"Identify the target quantity: {target_label}.",
-        f"List the givens from the example: {_known_values_text(example) or 'TODO: confirm the known quantities.'}",
-        f"Use `{formula.expression}` as the governing relationship for {concept_names[0] if concept_names else 'this example'}.",
-        "Substitute the known values carefully before interpreting the result.",
+        f"先明确要求什么：目标量是 {target_label}。",
+        f"列出已知条件：{_known_values_text(example) or 'TODO: 需要进一步确认题目的已知量。'}",
+        f"选择 `{formula.expression}` 作为这道题的主公式，对应 {concept_names[0] if concept_names else '当前方法'}。",
+        "代入之前先检查符号、单位和公式适用条件，再开始计算。",
     ]
     if formula.conditions:
-        plan_steps.append(f"Check the local condition cue: {formula.conditions[0]}")
+        plan_steps.append(f"回到原材料确认条件：{formula.conditions[0]}")
     else:
-        plan_steps.append("TODO: confirm the local conditions or assumptions before final interpretation.")
+        plan_steps.append("TODO: 需要先确认本题是否满足公式适用条件。")
     return plan_steps
 
 
@@ -213,56 +221,56 @@ def _build_detailed_solution(
     if not formula:
         return (
             [
-                f"Start from the problem statement: {example.problem_statement or example.prompt}",
-                "Explain the relevant concept in plain language using the local study material.",
-                "TODO: add a more specific worked derivation when a supporting formula is available.",
+                f"先看题意：{example.problem_statement or example.prompt}",
+                "先用中文把这道题在练什么讲清楚，再去决定是否需要公式。",
+                "TODO: 目前缺少稳定公式，后续应补上更具体的推导过程。",
             ],
             [
-                "This fallback path preserves a study explanation even when no formula is available.",
+                "这是无公式时的保底讲解路径，目的是先保住学习顺序而不是假装已经完整求解。",
             ],
         )
 
     detailed_steps = [
-        f"Restate the task: {example.problem_statement}",
-        f"Identify the target as { _target_label(example, formula) } and collect the givens: {_known_values_text(example)}.",
-        f"Write the governing relationship: `{formula.expression}`.",
+        f"先把题目主线说清楚：{example.problem_statement}",
+        f"这一步要求我们求 { _target_label(example, formula) }，已知量是 {_known_values_text(example)}。",
+        f"对应的核心公式是 `{formula.expression}`。",
     ]
     if formula.conditions:
-        detailed_steps.append(f"Check that the local condition cue fits the example: {formula.conditions[0]}")
+        detailed_steps.append(f"先检查题目是否满足原材料里的条件提醒：{formula.conditions[0]}")
     else:
-        detailed_steps.append("TODO: confirm the exact assumptions for applying this formula.")
+        detailed_steps.append("TODO: 原材料里没有给出足够清晰的适用条件，需要回源材料确认。")
 
     substitution_step = _build_substitution_step(example, formula)
     detailed_steps.append(substitution_step)
     detailed_steps.append(
-        f"Interpret the result in the language of {(_linked_concept_names(formula, state) or ['the example'])[0]} rather than stopping at the numeric output."
+        f"最后把结果放回 {(_linked_concept_names(formula, state) or ['本题'])[0]} 的语境里解释，不要只停在数字本身。"
     )
 
     rationale = [
-        "The solution starts by identifying the target and givens so the algebra stays tied to the study goal.",
-        f"`{formula.expression}` is used because it is the main relationship attached to this example.",
+        "先讲题意和已知量，可以避免一上来就机械代公式。",
+        f"选择 `{formula.expression}` 是因为它正是这道例题所依赖的主关系式。",
     ]
     if formula.conditions:
-        rationale.append(f"The explanation stays local to the source cue: {formula.conditions[0]}")
+        rationale.append(f"整段讲解都围绕原材料中的条件提示展开：{formula.conditions[0]}")
     else:
-        rationale.append("TODO: verify the formula conditions against stronger nearby evidence.")
+        rationale.append("TODO: 公式条件还需要更强的本地证据支持。")
     if "TODO:" in substitution_step:
-        rationale.append("TODO: the numerical computation should be checked if the formula needs rearrangement or more assumptions.")
+        rationale.append("TODO: 数值计算部分还需要结合更明确的条件或变形过程来复核。")
 
     return detailed_steps, rationale
 
 
 def _build_common_mistakes(example: ExampleArtifact, formula: FormulaArtifact | None) -> list[str]:
     mistakes = [
-        "Skipping the step where the target quantity is identified before substituting values.",
-        "Using memorized algebra without checking whether the local formula conditions actually apply.",
+        "还没看清题目在求什么，就直接往公式里代数字。",
+        "只记住公式外形，没有先检查原材料里的适用条件。",
     ]
     if formula:
-        mistakes.append(f"Mixing up the symbols in `{formula.expression}` or substituting the wrong value for the target quantity.")
+        mistakes.append(f"把 `{formula.expression}` 里的符号对应关系弄混，或者把目标量也当成已知量直接代进去。")
     else:
-        mistakes.append("Treating a concept explanation as if it were already a solved quantitative example.")
+        mistakes.append("把概念解释误当成已经完成的定量解题。")
     if not example.known_values:
-        mistakes.append("TODO: verify the givens if the example statement is still too qualitative.")
+        mistakes.append("TODO: 题目给定信息还偏少，后续要先确认已知量再做完整演算。")
     return mistakes
 
 
@@ -297,8 +305,9 @@ def _generate_solution_enrichment(
     result = model_client.generate_json(
         task_name=f"worked solution '{solution.solution_id}'",
         system_prompt=(
-            "You are refining a grounded worked solution for study use. "
+            "You are refining a grounded Chinese worked solution for study use. "
             "Use only the provided local excerpts, formula data, and example data. "
+            "Preserve course-native notation and keep the explanation in the order of intuition, formula, substitution, interpretation, and mistakes. "
             "Do not invent extra formulas or unsupported mathematical claims. "
             "Return JSON with keys: plan_steps, detailed_steps, rationale, common_mistakes."
         ),
@@ -322,6 +331,7 @@ def _generate_solution_enrichment(
             "Retrieved local excerpts:\n"
             f"{_render_chunk_context(supporting_chunks)}\n\n"
             "Improve the teaching clarity while staying close to the same formula and local evidence. "
+            "Write the output in Chinese by default. "
             "If evidence is weak, keep TODO markers instead of pretending certainty."
         ),
     )
@@ -337,8 +347,8 @@ def _target_label(example: ExampleArtifact, formula: FormulaArtifact) -> str:
     if example.target_symbol and example.target_symbol in formula.symbol_explanations:
         meaning = formula.symbol_explanations[example.target_symbol]
         if meaning and "TODO:" not in meaning:
-            return f"{meaning} (`{example.target_symbol}`)"
-    return f"`{example.target_symbol or _left_side_symbol(formula.expression) or 'target quantity'}`"
+            return f"{CHINESE_TERM_MAP.get(meaning.lower(), meaning)}（`{example.target_symbol}`）"
+    return f"`{example.target_symbol or _left_side_symbol(formula.expression) or '目标量'}`"
 
 
 def _known_values_text(example: ExampleArtifact) -> str:
@@ -350,7 +360,7 @@ def _known_values_text(example: ExampleArtifact) -> str:
 def _build_substitution_step(example: ExampleArtifact, formula: FormulaArtifact) -> str:
     left_symbol, right_expression = _split_formula(formula.expression)
     if not left_symbol or not right_expression:
-        return "TODO: restate the formula in a simple solved form before substituting values."
+        return "TODO: 需要先把公式整理成便于代入的形式，再继续演算。"
 
     substituted_expression = right_expression.replace("^", "**")
     numeric_values = {
@@ -360,7 +370,7 @@ def _build_substitution_step(example: ExampleArtifact, formula: FormulaArtifact)
     rhs_symbols = sorted(set(re.findall(r"[A-Za-z_][A-Za-z0-9_]*", right_expression)))
     if any(symbol not in numeric_values or numeric_values[symbol] is None for symbol in rhs_symbols):
         return (
-            "TODO: confirm the numeric givens needed for substitution; the current example data is incomplete."
+            "TODO: 当前例题缺少必要数值，暂时还不能完整代入计算。"
         )
 
     for symbol in sorted(rhs_symbols, key=len, reverse=True):
@@ -373,15 +383,15 @@ def _build_substitution_step(example: ExampleArtifact, formula: FormulaArtifact)
     result = _safe_eval(substituted_expression)
     if result is None:
         return (
-            f"Substitute the known values into `{formula.expression}` and carry out the arithmetic carefully. "
-            "TODO: check the exact numerical evaluation."
+            f"把已知量代入 `{formula.expression}` 后继续逐步计算。"
+            " TODO: 当前数值计算还需要人工复核。"
         )
 
     formatted_result = _format_number(result)
     arithmetic_expression = substituted_expression.replace("**", "^")
     return (
-        f"Substitute the givens into `{formula.expression}`: "
-        f"`{left_symbol} = {arithmetic_expression} = {formatted_result}`."
+        f"逐步代入 `{formula.expression}`："
+        f"`{left_symbol} = {arithmetic_expression} = {formatted_result}`。"
     )
 
 

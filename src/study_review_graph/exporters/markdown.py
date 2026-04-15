@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from study_review_graph.markdown_math import display_math, inline_math, symbol_math
 from study_review_graph.state import ExampleArtifact, FormulaArtifact, SourceReference, StudyGraphState, WorkedSolution
 
 
@@ -73,12 +74,12 @@ def _render_content_map(state: StudyGraphState) -> str:
     sections = [
         "# Content Map",
         "",
-        "This study artifact summarizes the main concepts inferred from the provided materials.",
-        "Descriptions are grounded in retrieved source chunks and remain heuristic in v0.1.",
+        "这份内容图谱用于先抓住本章主线，再回到公式和例题。",
+        "概念描述仍然以本地检索结果为依据，在 v0.1 中保持谨慎和可追踪。",
     ]
     for concept in state.concepts:
         linked_formula_lines = "\n".join(
-            f"- `{formula.expression}` (`{formula.formula_id}`)"
+            f"- {inline_math(formula.expression)} (`{formula.formula_id}`)"
             for formula in formula_links.get(concept.concept_id, [])
         ) or "- None linked yet"
         sections.append(
@@ -88,15 +89,15 @@ def _render_content_map(state: StudyGraphState) -> str:
                     "",
                     concept.description,
                     "",
-                    "### Why it matters",
+                    "### 为什么重要",
                     (
-                        f"- Treat this as a study anchor for understanding related formulas and examples."
+                        f"- 可以把这个概念当作复习主线，再去连接对应公式和例题。"
                     ),
                     "",
-                    "### Linked formulas",
+                    "### 关联公式",
                     linked_formula_lines,
                     "",
-                    "### Sources",
+                    "### 来源",
                     _render_references(concept.references),
                 ]
             )
@@ -113,12 +114,12 @@ def _render_formula_sheet(state: StudyGraphState) -> str:
     sections = [
         "# Formula Sheet",
         "",
-        "This study artifact collects formulas found in the source materials.",
-        "Extraction and interpretation are still heuristic in v0.1, so explicit TODO markers are kept where understanding is incomplete.",
+        "这份公式表按复习资料的方式整理核心关系式、符号和适用条件。",
+        "v0.1 仍然保留启发式提取和明确的 TODO 标记，不假装已经完全理解。",
     ]
     for formula in formulas:
         symbol_lines = "\n".join(
-            f"- `{symbol}`: {meaning}" for symbol, meaning in formula.symbol_explanations.items()
+            f"- {symbol_math(symbol)}：{meaning}" for symbol, meaning in formula.symbol_explanations.items()
         ) or "- TODO"
         condition_lines = "\n".join(f"- {condition}" for condition in formula.conditions) or "- TODO"
         linked_concepts = "\n".join(
@@ -128,23 +129,26 @@ def _render_formula_sheet(state: StudyGraphState) -> str:
         sections.append(
             "\n".join(
                 [
-                    f"## {formula.expression}",
+                    f"## 公式 {formula.formula_id}",
                     "",
+                    display_math(formula.expression),
+                    "",
+                    f"- 原始表达式：`{formula.expression}`",
                     f"- Formula ID: `{formula.formula_id}`",
                     "",
-                    "### Linked concepts",
+                    "### 关联概念",
                     linked_concepts,
                     "",
-                    "### Symbols",
+                    "### 符号解释",
                     symbol_lines,
                     "",
-                    "### Conditions",
+                    "### 条件 / 假设",
                     condition_lines,
                     "",
-                    "### Notes and TODOs",
+                    "### 说明与 TODO",
                     f"- {formula.notes or 'TODO: add more grounded interpretation notes.'}",
                     "",
-                    "### References",
+                    "### 来源",
                     _render_references(formula.references),
                 ]
             )
@@ -158,44 +162,48 @@ def _render_worked_examples(state: StudyGraphState) -> str:
 
     formula_lookup = {formula.formula_id: formula.expression for formula in state.formulas}
     sections = [
-        "# Worked Examples",
+        "# 例题讲解",
         "",
-        "These study examples are grounded in the extracted formulas and nearby source context.",
-        "LLM enhancement is limited to improving clarity; the example structure remains deterministic in v0.1.",
+        "这部分按“先知道这题在练什么，再看公式和已知量，再进入演算”的复习节奏组织。",
+        "如果原材料没有给出完整数值例题，当前版本会诚实地用最小可算例题补全步骤。",
     ]
-    for example in state.examples:
+    for index, example in enumerate(state.examples, start=1):
         formula_lines = "\n".join(
-            f"- `{formula_lookup.get(formula_id, formula_id)}` (`{formula_id}`)"
+            f"- {inline_math(formula_lookup.get(formula_id, formula_id))} (`{formula_id}`)"
             for formula_id in example.formula_ids
         ) or "- None"
         known_value_lines = "\n".join(
-            f"- `{symbol}` = {value}" for symbol, value in example.known_values.items()
+            f"- {symbol_math(symbol)} = {value}" for symbol, value in example.known_values.items()
         ) or "- None listed"
         sections.append(
             "\n".join(
                 [
-                    f"## {example.title}",
+                    f"## 例题 {index}：{example.title}",
                     "",
-                    f"- Example ID: `{example.example_id}`",
-                    f"- Difficulty: {example.difficulty}",
-                    f"- Target symbol: `{example.target_symbol}`" if example.target_symbol else "- Target symbol: TODO",
+                    f"- 例题 ID：`{example.example_id}`",
+                    f"- 难度：{example.difficulty}",
+                    (
+                        f"- 目标符号：{symbol_math(example.target_symbol)}"
+                        if example.target_symbol
+                        else "- 目标符号：TODO"
+                    ),
                     "",
-                    "### Target formulas",
+                    "### 这题在练什么",
+                    f"- {example.study_value or 'TODO: 需要补充这道题的复习价值。'}",
+                    "",
+                    "### 对应公式",
                     formula_lines,
                     "",
-                    "### Problem Statement",
+                    "### 题目",
                     example.problem_statement or example.prompt or "TODO",
                     "",
-                    "### Known Values",
+                    "### 已知条件",
                     known_value_lines,
                     "",
-                    "### Why This Helps",
-                    f"- {example.study_value or 'TODO: explain why this example is useful for study.'}",
-                    "",
-                    "### Grounding Notes",
+                    "### 与原材料的关系",
                     f"- {example.reasoning_context or 'TODO: add grounding notes.'}",
                     "",
-                    "### Sources",
+                    "### 来源",
                     _render_references(example.references),
                 ]
             )
@@ -209,33 +217,57 @@ def _render_solutions(state: StudyGraphState) -> str:
         return "# Worked Solutions\n\nNo worked solutions generated.\n"
 
     example_lookup = {example.example_id: example for example in state.examples}
-    sections = ["# Worked Solutions\n"]
+    formula_lookup = {formula.formula_id: formula for formula in state.formulas}
+    sections = [
+        "# 例题详解",
+        "",
+        "这一部分按“题意直觉 -> 公式选择 -> 符号解释 -> 逐步代入 -> 结果理解 -> 易错点”的顺序讲解。",
+    ]
     for solution in solutions:
         example = example_lookup.get(solution.example_id)
+        formula = _primary_solution_formula(example, formula_lookup) if example else None
+        symbol_lines = _render_symbol_explanations(formula)
         sections.append(
             "\n".join(
                 [
                     f"## {solution.solution_id}",
                     "",
-                    f"- Example ID: `{solution.example_id}`",
-                    f"- Example Title: {example.title}" if example else "- Example Title: TODO",
+                    f"- 对应例题：`{solution.example_id}`",
+                    f"- 题目标题：{example.title}" if example else "- 题目标题：TODO",
                     "",
-                    "### Problem Statement",
+                    "### 题意直觉",
+                    (
+                        f"- 这道题的目标是先看清要解决什么，再判断为什么要用这条公式。"
+                        if example
+                        else "- TODO"
+                    ),
+                    "",
+                    "### 题目",
                     example.problem_statement if example and example.problem_statement else "TODO",
                     "",
-                    "### Plan Steps",
+                    "### 解题计划",
                     "\n".join(f"- {step}" for step in solution.plan_steps) or "- TODO",
                     "",
-                    "### Detailed Steps",
+                    "### 公式选择",
+                    (
+                        display_math(formula.expression)
+                        if formula
+                        else "TODO: 需要补充本题对应的核心公式。"
+                    ),
+                    "",
+                    "### 符号说明",
+                    symbol_lines,
+                    "",
+                    "### 逐步代入 / 推导",
                     "\n".join(f"- {step}" for step in solution.detailed_steps) or "- TODO",
                     "",
-                    "### Rationale",
+                    "### 为什么这样做",
                     "\n".join(f"- {item}" for item in solution.rationale) or "- TODO",
                     "",
-                    "### Common Mistakes",
+                    "### 易错点",
                     "\n".join(f"- {item}" for item in solution.common_mistakes) or "- TODO",
                     "",
-                    "### References",
+                    "### 来源",
                     _render_references(solution.references),
                 ]
             )
@@ -245,23 +277,33 @@ def _render_solutions(state: StudyGraphState) -> str:
 
 def _render_review_notes(state: StudyGraphState) -> str:
     notes = state.review_notes
+    example_lookup = {example.example_id: example for example in state.examples}
+    mistake_lines = _render_common_mistakes(state)
+    example_lines = _render_review_examples(state, example_lookup)
+    formula_lines = _render_review_formulas(state, notes)
     return "\n".join(
         [
-            "# Review Notes",
+            "# 复习笔记",
             "",
-            "## Concise Summary",
+            "## 本章主线",
             "\n".join(f"- {line}" for line in notes.concise_summary) or "- None",
             "",
-            "## Detailed Explanations",
-            "\n".join(f"- {line}" for line in notes.detailed_explanations) or "- None",
+            "## 关键定义与公式",
+            formula_lines,
             "",
-            "## Formula Highlights",
-            "\n".join(f"- {line}" for line in notes.formula_highlights) or "- None",
+            "## 算法 / 方法逐个讲解",
+            "\n".join(f"- {line}" for line in notes.detailed_explanations) or "- TODO",
             "",
-            "## Study Questions",
+            "## 每个主要方法对应的例题 / worked example",
+            example_lines,
+            "",
+            "## 易错点 / 混淆点",
+            mistake_lines,
+            "",
+            "## 考前速记版",
             "\n".join(f"- {line}" for line in notes.study_questions) or "- None",
             "",
-            "## References",
+            "## 来源",
             _render_references(notes.references),
             "",
         ]
@@ -300,6 +342,76 @@ def _render_references(references: list[SourceReference]) -> str:
         f"- {reference.source_path} ({reference.chunk_id or 'document'})"
         for reference in references
     )
+
+
+def _render_symbol_explanations(formula: FormulaArtifact | None) -> str:
+    if not formula or not formula.symbol_explanations:
+        return "- TODO"
+    return "\n".join(
+        f"- {symbol_math(symbol)}：{meaning}"
+        for symbol, meaning in formula.symbol_explanations.items()
+    )
+
+
+def _primary_solution_formula(
+    example: ExampleArtifact | None,
+    formula_lookup: dict[str, FormulaArtifact],
+) -> FormulaArtifact | None:
+    if not example:
+        return None
+    formula_ids = list(example.formula_ids)
+    if example.formula_id and example.formula_id not in formula_ids:
+        formula_ids.insert(0, example.formula_id)
+    for formula_id in formula_ids:
+        if formula_id in formula_lookup:
+            return formula_lookup[formula_id]
+    return None
+
+
+def _render_review_formulas(state: StudyGraphState, notes) -> str:
+    if state.formulas:
+        sections: list[str] = []
+        for formula in state.formulas[:4]:
+            sections.extend(
+                [
+                    f"- 公式 {formula.formula_id}",
+                    f"  {inline_math(formula.expression)}",
+                    (
+                        "  条件提醒："
+                        + (formula.conditions[0] if formula.conditions else "TODO: 需要回原材料确认。")
+                    ),
+                ]
+            )
+        return "\n".join(sections)
+    return "\n".join(f"- {line}" for line in notes.formula_highlights) or "- TODO"
+
+
+def _render_review_examples(state: StudyGraphState, example_lookup: dict[str, ExampleArtifact]) -> str:
+    if not state.examples:
+        return "- TODO: 当前材料过少，例题部分还需要补充。"
+    sections: list[str] = []
+    solution_lookup = {solution.example_id: solution for solution in state.worked_solutions}
+    for example in state.examples[:3]:
+        sections.append(f"### {example.title}")
+        sections.append(example.problem_statement or example.prompt or "TODO")
+        solution = solution_lookup.get(example.example_id)
+        if solution and solution.detailed_steps:
+            sections.append("关键步骤：")
+            sections.extend(f"- {step}" for step in solution.detailed_steps[:3])
+        sections.append("")
+    return "\n".join(sections).strip()
+
+
+def _render_common_mistakes(state: StudyGraphState) -> str:
+    mistakes: list[str] = []
+    seen: set[str] = set()
+    for solution in state.worked_solutions:
+        for item in solution.common_mistakes:
+            if item in seen:
+                continue
+            seen.add(item)
+            mistakes.append(item)
+    return "\n".join(f"- {item}" for item in mistakes) or "- TODO"
 
 
 def _build_formula_links_by_concept(state: StudyGraphState) -> dict[str, list[FormulaArtifact]]:

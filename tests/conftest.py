@@ -1,6 +1,14 @@
+from pathlib import Path
+
 import pytest
 
 from study_review_graph.model_client import reset_model_client_cache, reset_model_response_cache
+
+
+def pytest_configure(config):
+    workspace_tmp = Path.cwd() / ".pytest_runtime_tmp"
+    workspace_tmp.mkdir(exist_ok=True)
+    config.option.basetemp = str(workspace_tmp)
 
 
 @pytest.fixture(autouse=True)

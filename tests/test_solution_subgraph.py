@@ -34,14 +34,14 @@ def test_solution_subgraph_builds_local_worked_solution():
         examples=[
             ExampleArtifact(
                 example_id="example-0",
-                title="Newton's second law worked example",
-                problem_statement="Use `F = m * a` to find net force when mass = 2 kg and acceleration = 3 m/s^2.",
+                title="例题：牛顿第二定律",
+                problem_statement="已知质量 2 kg、加速度 3 m/s^2，请利用 `F = m * a` 求净力。",
                 formula_ids=["formula-0"],
                 difficulty="introductory",
-                study_value="Practice a direct substitution into the force relationship.",
+                study_value="适合练习牛顿第二定律中的直接代入。",
                 known_values={"m": "2 kg", "a": "3 m/s^2"},
                 target_symbol="F",
-                prompt="Use `F = m * a` to find net force when mass = 2 kg and acceleration = 3 m/s^2.",
+                prompt="已知质量 2 kg、加速度 3 m/s^2，请利用 `F = m * a` 求净力。",
                 formula_id="formula-0",
                 references=[reference],
             )
@@ -56,6 +56,7 @@ def test_solution_subgraph_builds_local_worked_solution():
     assert solution.plan_steps
     assert any("F = 2 * 3 = 6" in step for step in solution.detailed_steps)
     assert any("mass is treated as constant" in step for step in solution.detailed_steps)
+    assert solution.plan_steps[0].startswith("先明确要求什么")
     assert solution.rationale
     assert solution.common_mistakes
     assert solution.references
@@ -67,18 +68,18 @@ def test_solution_subgraph_uses_llm_refinement_when_available(monkeypatch):
             return ModelCallResult(
                 payload={
                     "plan_steps": [
-                        "Identify the target net force.",
-                        "Use `F = m * a` with the given mass and acceleration.",
+                        "先看题目要求的目标量是净力。",
+                        "再用 `F = m * a` 把质量和加速度连起来。",
                     ],
                     "detailed_steps": [
-                        "Write `F = m * a`.",
-                        "Substitute `m = 2` and `a = 3` to obtain `F = 6`.",
+                        "先写出 `F = m * a`。",
+                        "把 `m = 2`、`a = 3` 代入，得到 `F = 6`。",
                     ],
                     "rationale": [
-                        "This keeps the computation tied to Newton's second law.",
+                        "这样做可以保证每一步都紧扣牛顿第二定律。",
                     ],
                     "common_mistakes": [
-                        "Mixing up the target force with one of the givens.",
+                        "容易把目标量净力和已知量混在一起。",
                     ],
                 }
             )
@@ -108,12 +109,12 @@ def test_solution_subgraph_uses_llm_refinement_when_available(monkeypatch):
         examples=[
             ExampleArtifact(
                 example_id="example-0",
-                title="Newton's second law worked example",
-                problem_statement="Use `F = m * a` to find net force when mass = 2 kg and acceleration = 3 m/s^2.",
+                title="例题：牛顿第二定律",
+                problem_statement="已知质量 2 kg、加速度 3 m/s^2，请利用 `F = m * a` 求净力。",
                 formula_ids=["formula-0"],
                 known_values={"m": "2 kg", "a": "3 m/s^2"},
                 target_symbol="F",
-                prompt="Use `F = m * a` to find net force when mass = 2 kg and acceleration = 3 m/s^2.",
+                prompt="已知质量 2 kg、加速度 3 m/s^2，请利用 `F = m * a` 求净力。",
                 formula_id="formula-0",
                 references=[reference],
             )
@@ -123,8 +124,8 @@ def test_solution_subgraph_uses_llm_refinement_when_available(monkeypatch):
     solutions = run_solution_subgraph(state)
 
     assert solutions[0].plan_steps == [
-        "Identify the target net force.",
-        "Use `F = m * a` with the given mass and acceleration.",
+        "先看题目要求的目标量是净力。",
+        "再用 `F = m * a` 把质量和加速度连起来。",
     ]
-    assert solutions[0].detailed_steps[1] == "Substitute `m = 2` and `a = 3` to obtain `F = 6`."
-    assert solutions[0].common_mistakes == ["Mixing up the target force with one of the givens."]
+    assert solutions[0].detailed_steps[1] == "把 `m = 2`、`a = 3` 代入，得到 `F = 6`。"
+    assert solutions[0].common_mistakes == ["容易把目标量净力和已知量混在一起。"]

@@ -3,6 +3,7 @@
 `study-review-graph` is a CLI-first, open-source study and review pipeline for course materials. It ingests local study materials such as PDFs, markdown notes, and plain text notes, then produces grounded study artifacts. The current polished v0.1 foundation is centered on four showcase outputs: `content_map.md`, `formula_sheet.md`, `worked_examples.md`, and `worked_solutions.md`.
 
 The current version supports an OpenAI-compatible model endpoint, including Gemini served through an OpenAI-compatible base URL. LLM enhancement is intentionally limited to targeted nodes inside the concept/formula slice and the example/solution slice.
+For learning artifacts, the repository also follows a local study-material skill under `.agents/skills/review-material-skill/`, which keeps review notes, worked examples, and worked solutions closer to a Chinese-first study-note structure without changing the underlying graph architecture.
 
 The project exists to support deep understanding rather than shallow summarization. Instead of treating study material as a generic chat prompt, it organizes the work as a deterministic LangGraph workflow with shared state and structured intermediate artifacts. This makes the first version easier to inspect, test, and debug.
 
@@ -24,7 +25,7 @@ Version `0.1.0` now includes two clearer functional slices with deterministic de
 - A presentable `formula_sheet.md` built from heuristic formula extraction plus optionally LLM-enhanced explanations and assumptions
 - A presentable `worked_examples.md` built from extracted formulas, linked concepts, local references, and optionally LLM-refined study wording
 - A presentable `worked_solutions.md` built from those worked examples, with plan steps, detailed steps, rationale, common mistakes, and optionally LLM-refined explanation wording
-- Deterministic review note generation
+- Deterministic review note generation aligned to a local Chinese study-note skill
 - Quality review placeholders for groundedness, formula coverage, and explanation completeness
 - Markdown export with source traceability fields where possible
 
@@ -189,6 +190,7 @@ The exporter also keeps these additional files:
 - `quality_report.md`
 
 These outputs are scaffolded for grounded study workflows and include source references whenever the current stage can preserve them.
+`review_notes.md` now follows a fixed study-note outline inspired by the local skill: `本章主线`, `关键定义与公式`, `算法 / 方法逐个讲解`, `例题对应`, `易错点 / 混淆点`, and `考前速记版`.
 
 ## Current Limitations
 
@@ -199,6 +201,7 @@ These outputs are scaffolded for grounded study workflows and include source ref
 - Linked concepts still start from heuristic matching and may be improved by the model when local evidence is clear.
 - Worked-example structure is deterministic first. The model only refines wording around the same formula-centered example.
 - Worked-solution generation is still conservative. It can improve step wording with the model, but direct arithmetic is only attempted for simple solved-form formulas.
+- Review-note section order is skill-guided, but the actual section content is still assembled from existing concepts, formulas, examples, and solutions rather than a broader pedagogical planner.
 - Quality review uses placeholder checks rather than advanced evaluators.
 - Retrieval is deterministic token overlap, not embeddings.
 - PDF support requires the optional runtime dependencies to be installed.
