@@ -7,6 +7,8 @@ For learning artifacts, the repository also follows a local study-material skill
 
 The project exists to support deep understanding rather than shallow summarization. Instead of treating study material as a generic chat prompt, it organizes the work as a deterministic LangGraph workflow with shared state and structured intermediate artifacts. This makes the first version easier to inspect, test, and debug.
 
+The repository now also includes a lightweight multi-agent study-session layer on top of that foundation. This agent layer does not replace the grounded pipeline; it routes user study requests to bounded specialists that reuse the existing artifacts.
+
 ## Why LangGraph + LangChain + RAG
 
 - LangGraph provides a durable workflow model with explicit state transitions, which fits a multi-stage study pipeline better than a free-form agent chat loop.
@@ -29,6 +31,7 @@ Version `0.1.0` now includes two clearer functional slices with deterministic de
 - Quality review placeholders for groundedness, formula coverage, and explanation completeness
 - Markdown export with source traceability fields where possible
 - A grounded `practice_set.md` built from current concepts, formulas, worked examples, worked solutions, and review notes
+- A lightweight multi-agent orchestration layer for request routing across concept help, formula help, examples, practice, answer checking, and review guidance
 
 This version is intentionally conservative. It is a runnable repository skeleton with two polished pipeline slices, not a finished pedagogical system. Targeted nodes can use an API-backed model when configured, but the repository still preserves a no-key heuristic fallback path.
 
@@ -38,6 +41,7 @@ The current polished slices are:
 2. example and solution learning support via `worked_examples.md` and `worked_solutions.md`
 3. compact practice generation via `practice_set.md`
 4. single-item answer checking via `answer_feedback.md`
+5. lightweight study-session orchestration via `agent_session.md`
 
 ## Study Modes
 
@@ -174,6 +178,18 @@ Answer-check command inputs:
 - `--answer` or `--answer-file`
 - plus the same grounding options such as `--input-dir`, `--output-dir`, `--study-mode`, and `--env-file`
 
+Agent-session command inputs:
+
+- `study-session`
+- `--request`
+- `--input-dir`
+- `--output-dir`
+- `--study-mode`
+- optional `--focus-topic`
+- optional `--practice-id`
+- optional `--answer` or `--answer-file`
+- optional `--env-file`
+
 ## Generated Outputs
 
 The primary showcase outputs are:
@@ -240,11 +256,13 @@ The exporter also keeps these additional files:
 The answer-check utility path also writes:
 
 - `answer_feedback.md`
+- `agent_session.md`
 
 These outputs are scaffolded for grounded study workflows and include source references whenever the current stage can preserve them.
 `review_notes.md` keeps the same filename, but its internal structure now changes with the selected study mode and follows the local skill templates in `.agents/skills/review-material-generator/`.
 `practice_set.md` reuses the current grounded artifacts rather than generating from a disconnected quiz subsystem.
 `answer_feedback.md` reuses the current practice item, linked formulas, linked concepts, worked examples, worked solutions, and review notes to produce a study-oriented feedback note.
+`agent_session.md` records the detected intent, selected specialist agent, grounded response, references, and recommended next action for one study-session request.
 
 ## Current Limitations
 
@@ -258,6 +276,7 @@ These outputs are scaffolded for grounded study workflows and include source ref
 - Review-note section order is skill-guided, but the actual section content is still assembled from existing concepts, formulas, examples, and solutions rather than a broader pedagogical planner.
 - Practice-item selection is deterministic first. The model can refine question wording, hints, and answer clarity, but it does not invent new unsupported topics.
 - Answer checking is heuristic and study-oriented. It can detect broadly correct answers, partial answers, wrong-formula drift, and missing reasoning steps, but it is not a theorem prover or a mathematically complete grader.
+- The study-session supervisor routes requests deterministically first. It is agentic in orchestration, but it still depends on the same grounded artifacts and tool wrappers rather than open-ended agent chat.
 - `deep_dive` target selection is still heuristic when `--focus-topic` is omitted or cannot be matched cleanly.
 - Quality review uses placeholder checks rather than advanced evaluators.
 - Retrieval is deterministic token overlap, not embeddings.
@@ -323,6 +342,12 @@ Check one practice answer:
 
 ```bash
 study-review-graph check-answer --input-dir examples/input --output-dir examples/output/check_answer_run --practice-id practice-formula-0 --answer "先看题目是不是在讨论净力、质量和加速度的关系，再确认质量可以视为常量，所以应该用 F = m * a。"
+```
+
+Run one study session through the agent layer:
+
+```bash
+study-review-graph study-session --input-dir examples/input --output-dir examples/output/study_session_run --request "请重点讲一下牛顿第二定律这个公式什么时候用" --study-mode deep_dive --focus-topic "Newton's Second Law"
 ```
 
 See [docs/architecture.md](docs/architecture.md) for more detail.

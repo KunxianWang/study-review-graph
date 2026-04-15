@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 import re
 
+from study_review_graph.agents.session import AgentSessionResult
 from study_review_graph.markdown_math import display_math, inline_math, symbol_math
 from study_review_graph.nodes.answer_check import feedback_label_zh
 from study_review_graph.state import AnswerFeedback, ExampleArtifact, FormulaArtifact, PracticeItem, SourceReference, StudyGraphState, WorkedSolution
@@ -63,6 +64,19 @@ def export_answer_feedback_markdown(
     output_path = Path(output_dir) / "answer_feedback.md"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(_render_answer_feedback(feedback), encoding="utf-8")
+    return str(output_path)
+
+
+def export_agent_session_markdown(
+    session_result: AgentSessionResult,
+    *,
+    output_dir: str | Path,
+) -> str:
+    """Write the study-session summary markdown and return the output path."""
+
+    output_path = Path(output_dir) / "agent_session.md"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(_render_agent_session(session_result), encoding="utf-8")
     return str(output_path)
 
 
@@ -602,3 +616,29 @@ def _render_answer_feedback(feedback: AnswerFeedback) -> str:
             "",
         ]
     )
+
+
+def _render_agent_session(session_result: AgentSessionResult) -> str:
+    return "\n".join(
+        [
+            "# Agent Session",
+            "",
+            f"- 检测到的意图：`{session_result.detected_intent}`",
+            f"- 选中的 Agent：`{session_result.selected_agent}`",
+            (
+                f"- 关联 Practice ID：`{session_result.selected_practice_id}`"
+                if session_result.selected_practice_id
+                else ""
+            ),
+            "",
+            f"## {session_result.response_title}",
+            _render_note_lines(session_result.response_lines),
+            "",
+            "## Recommended Next Action",
+            f"- {session_result.recommended_next_action or 'TODO'}",
+            "",
+            "## Grounded References",
+            _render_references(session_result.references),
+            "",
+        ]
+    ).replace("\n\n\n", "\n\n")

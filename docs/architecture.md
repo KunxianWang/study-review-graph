@@ -40,6 +40,26 @@ ingest_documents
   -> export_outputs
 ```
 
+## Agent Session Layer
+
+On top of the main workflow, the repository now includes a lightweight study-session layer. This is not a replacement for the graph above. Instead, it:
+
+1. rebuilds the current grounded state through the existing pipeline
+2. classifies one user study request
+3. routes it to one bounded specialist agent
+4. reuses existing artifacts and utilities
+5. writes `agent_session.md`
+
+The current bounded agents are:
+
+- `SupervisorAgent`
+- `ConceptFormulaAgent`
+- `ExampleSolutionAgent`
+- `PracticeAgent`
+- `AnswerCriticAgent`
+
+This layer is intentionally small and explicit. It is agentic in routing and task selection, but not a free-form multi-agent chat sandbox.
+
 ## Subgraphs
 
 ### Formula Subgraph
@@ -121,6 +141,8 @@ Current LLM-enhanced nodes:
 - worked-example wording refinement
 - worked-solution wording refinement
 - practice-question wording, hint, and answer refinement
+
+The agent-session layer itself is deterministic-first. It currently uses model-backed behavior only indirectly through the grounded artifact builders and answer-feedback refinement paths that already exist.
 
 ## Local Skill Guidance
 
@@ -243,6 +265,27 @@ In v0.1, feedback classification is deterministic first. Optional model calls on
 - key issues
 - correct approach
 - what to review next
+
+### `agent_session.md`
+
+This file is produced by the study-session layer. It contains:
+
+- detected intent
+- selected specialist agent
+- grounded response
+- grounded references
+- recommended next action
+
+The supervisor currently routes requests into these categories:
+
+- `concept_help`
+- `formula_help`
+- `example_help`
+- `practice_request`
+- `answer_check`
+- `review_guidance`
+
+Routing is deterministic-first and keyword-driven in v0.1. The specialist agents then call the existing grounded capability wrappers rather than rebuilding parallel logic.
 
 ## Extension Points
 
