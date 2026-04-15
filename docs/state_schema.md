@@ -61,7 +61,7 @@ The state model is intentionally structured and explicit. Each major workflow st
 ### `review_notes`
 
 - Type: `ReviewNotes`
-- Purpose: concise summary, detailed explanation snippets, formula highlights, and study questions
+- Purpose: mode-aware review-note content assembled from grounded concepts, formulas, examples, and worked solutions
 
 ### `output_paths`
 
@@ -109,10 +109,13 @@ Current v0.1 config fields:
 - `chunk_size`
 - `chunk_overlap`
 - `top_k`
+- `study_mode`
+- `focus_topic`
 - `enable_external_retrieval`
 - `enable_gemini_review`
 
 The last two flags are extension hooks only. They do not enable advanced functionality in v0.1 yet.
+`study_mode` currently accepts `full_review`, `deep_dive`, and `exam_sprint`. `focus_topic` is an optional deep-dive hint.
 
 ### `ExampleArtifact`
 
@@ -146,6 +149,29 @@ Current v0.1 solution fields include:
 - `references`
 
 The model is designed for study guidance, not just final-answer storage.
+
+### `ReviewNotes`
+
+Current v0.1 review-note fields include:
+
+- `mode`
+- `focus_target`
+- `focus_selection_note`
+- `concise_summary`
+- `detailed_explanations`
+- `formula_highlights`
+- `example_highlights`
+- `common_mistakes`
+- `study_questions`
+- `references`
+
+This model stays lightweight on purpose. The same object can back:
+
+- full review-pack notes
+- one-topic deep dives
+- exam-sprint summaries
+
+without changing the surrounding graph shape.
 
 ## Notes
 

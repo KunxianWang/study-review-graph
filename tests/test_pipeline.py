@@ -97,6 +97,7 @@ def test_pipeline_runs_end_to_end():
         assert "F = 2 * 3 = 6" in worked_solutions
 
         assert "# 复习笔记" in review_notes
+        assert "> 当前模式：`full_review`" in review_notes
         assert "## 本章主线" in review_notes
         assert "## 关键定义与公式" in review_notes
         assert "## 算法 / 方法逐个讲解" in review_notes

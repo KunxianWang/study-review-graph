@@ -3,7 +3,7 @@
 `study-review-graph` is a CLI-first, open-source study and review pipeline for course materials. It ingests local study materials such as PDFs, markdown notes, and plain text notes, then produces grounded study artifacts. The current polished v0.1 foundation is centered on four showcase outputs: `content_map.md`, `formula_sheet.md`, `worked_examples.md`, and `worked_solutions.md`.
 
 The current version supports an OpenAI-compatible model endpoint, including Gemini served through an OpenAI-compatible base URL. LLM enhancement is intentionally limited to targeted nodes inside the concept/formula slice and the example/solution slice.
-For learning artifacts, the repository also follows a local study-material skill under `.agents/skills/review-material-skill/`, which keeps review notes, worked examples, and worked solutions closer to a Chinese-first study-note structure without changing the underlying graph architecture.
+For learning artifacts, the repository also follows a local study-material skill under `.agents/skills/review-material-generator/`, which keeps review notes, worked examples, and worked solutions closer to a Chinese-first study-note structure without changing the underlying graph architecture.
 
 The project exists to support deep understanding rather than shallow summarization. Instead of treating study material as a generic chat prompt, it organizes the work as a deterministic LangGraph workflow with shared state and structured intermediate artifacts. This makes the first version easier to inspect, test, and debug.
 
@@ -25,7 +25,7 @@ Version `0.1.0` now includes two clearer functional slices with deterministic de
 - A presentable `formula_sheet.md` built from heuristic formula extraction plus optionally LLM-enhanced explanations and assumptions
 - A presentable `worked_examples.md` built from extracted formulas, linked concepts, local references, and optionally LLM-refined study wording
 - A presentable `worked_solutions.md` built from those worked examples, with plan steps, detailed steps, rationale, common mistakes, and optionally LLM-refined explanation wording
-- Deterministic review note generation aligned to a local Chinese study-note skill
+- Deterministic review note generation aligned to a local Chinese study-note skill, with selectable output modes
 - Quality review placeholders for groundedness, formula coverage, and explanation completeness
 - Markdown export with source traceability fields where possible
 
@@ -35,6 +35,21 @@ The two polished slices are:
 
 1. content and formula understanding via `content_map.md` and `formula_sheet.md`
 2. example and solution learning support via `worked_examples.md` and `worked_solutions.md`
+
+## Study Modes
+
+`review_notes.md` now supports three skill-aligned study modes:
+
+- `full_review`
+  Default mode. Produces the full Chinese review-pack structure:
+  `本章主线 -> 关键定义与公式 -> 算法 / 方法逐个讲解 -> 每个主要方法对应的例题 / worked example -> 易错点 / 混淆点 -> 考前速记版`
+- `deep_dive`
+  Focuses on one primary concept, formula, or method. If `--focus-topic` is provided, the pipeline uses that target when it can match current grounded artifacts. If no target is provided, it auto-selects the strongest current candidate and says so in the output.
+- `exam_sprint`
+  Produces a compressed, exam-oriented note:
+  `必背定义 -> 核心公式 -> 高频考点 -> 一道典型题 -> 速记提醒`
+
+These modes reuse the same grounded pipeline artifacts instead of creating a separate note-generation system.
 
 ## Planned Later
 
@@ -107,13 +122,14 @@ study-review-graph run ^
   --input-dir examples/input ^
   --output-dir examples/output/run ^
   --course-name "Intro Mechanics" ^
-  --user-goal "Build deep understanding of the concepts, formulas, and worked examples."
+  --user-goal "Build deep understanding of the concepts, formulas, and worked examples." ^
+  --study-mode full_review
 ```
 
 You can also run the module directly:
 
 ```bash
-python -m study_review_graph run --env-file E:\PROJECT\AGENT\.env --input-dir examples/input --output-dir examples/output/run
+python -m study_review_graph run --env-file E:\PROJECT\AGENT\.env --input-dir examples/input --output-dir examples/output/run --study-mode full_review
 ```
 
 When `--env-file` is provided explicitly, values in that file take precedence over stale shell environment variables. This helps avoid confusing runtime mismatches such as an old `MODEL_PROVIDER` still being present in the shell.
@@ -135,6 +151,13 @@ Accepted `MODEL_PROVIDER` values for the current OpenAI-compatible client path a
 - `openai_compatible`
 - `gemini`
 - `gemini_openai_compatible`
+
+Study-note mode flags:
+
+- `--study-mode full_review`
+- `--study-mode deep_dive`
+- `--study-mode exam_sprint`
+- `--focus-topic "Your concept or formula"` for `deep_dive`
 
 ## Generated Outputs
 
@@ -190,7 +213,7 @@ The exporter also keeps these additional files:
 - `quality_report.md`
 
 These outputs are scaffolded for grounded study workflows and include source references whenever the current stage can preserve them.
-`review_notes.md` now follows a fixed study-note outline inspired by the local skill: `本章主线`, `关键定义与公式`, `算法 / 方法逐个讲解`, `例题对应`, `易错点 / 混淆点`, and `考前速记版`.
+`review_notes.md` keeps the same filename, but its internal structure now changes with the selected study mode and follows the local skill templates in `.agents/skills/review-material-generator/`.
 
 ## Current Limitations
 
@@ -202,6 +225,7 @@ These outputs are scaffolded for grounded study workflows and include source ref
 - Worked-example structure is deterministic first. The model only refines wording around the same formula-centered example.
 - Worked-solution generation is still conservative. It can improve step wording with the model, but direct arithmetic is only attempted for simple solved-form formulas.
 - Review-note section order is skill-guided, but the actual section content is still assembled from existing concepts, formulas, examples, and solutions rather than a broader pedagogical planner.
+- `deep_dive` target selection is still heuristic when `--focus-topic` is omitted or cannot be matched cleanly.
 - Quality review uses placeholder checks rather than advanced evaluators.
 - Retrieval is deterministic token overlap, not embeddings.
 - PDF support requires the optional runtime dependencies to be installed.
@@ -232,6 +256,28 @@ Two specialized subgraphs keep responsibilities sharp:
 
 - `formula_subgraph`: formula extraction, symbol explanation, conditions, and links to concepts
 - `solution_subgraph`: solution planning, explanation expansion, rationale, and common mistakes
+
+`generate_review_notes` now branches by `study_mode` while still consuming the same shared state artifacts. The graph shape does not change.
+
+## Example Commands
+
+Default full review:
+
+```bash
+study-review-graph run --input-dir examples/input --output-dir examples/output/run --study-mode full_review
+```
+
+Deep dive with an explicit focus:
+
+```bash
+study-review-graph run --input-dir examples/input --output-dir examples/output/deep_dive_run --study-mode deep_dive --focus-topic "Kinetic Energy"
+```
+
+Exam sprint:
+
+```bash
+study-review-graph run --input-dir examples/input --output-dir examples/output/exam_sprint_run --study-mode exam_sprint
+```
 
 See [docs/architecture.md](docs/architecture.md) for more detail.
 See [docs/state_schema.md](docs/state_schema.md) for the current workflow state model.

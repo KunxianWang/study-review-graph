@@ -10,7 +10,7 @@ from rich.console import Console
 
 from study_review_graph.graph import invoke_study_graph
 from study_review_graph.model_client import reset_model_client_cache, reset_model_response_cache
-from study_review_graph.state import RuntimeConfig, StudyGraphState
+from study_review_graph.state import RuntimeConfig, StudyGraphState, StudyNoteMode
 
 app = typer.Typer(help="Build grounded study-review artifacts from course materials.")
 console = Console()
@@ -37,6 +37,14 @@ def run(
     chunk_size: int = typer.Option(900, min=200),
     chunk_overlap: int = typer.Option(120, min=0),
     top_k: int = typer.Option(5, min=1),
+    study_mode: StudyNoteMode = typer.Option(
+        "full_review",
+        help="Study-note mode: full_review, deep_dive, or exam_sprint.",
+    ),
+    focus_topic: str | None = typer.Option(
+        None,
+        help="Optional concept, formula, or method to focus on in deep_dive mode.",
+    ),
 ) -> None:
     """Run the study review graph on a local input directory."""
 
@@ -51,6 +59,8 @@ def run(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
             top_k=top_k,
+            study_mode=study_mode,
+            focus_topic=focus_topic,
         ),
     )
 

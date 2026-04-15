@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 from study_review_graph.markdown_math import display_math, inline_math, symbol_math
 from study_review_graph.state import ExampleArtifact, FormulaArtifact, SourceReference, StudyGraphState, WorkedSolution
@@ -61,6 +62,8 @@ def _render_overview(state: StudyGraphState) -> str:
         f"- Formulas: {len(state.formulas)}\n"
         f"- Examples: {len(state.examples)}\n"
         f"- Worked solutions: {len(state.worked_solutions)}\n\n"
+        f"- Review mode: {state.config.study_mode}\n"
+        f"- Focus topic: {state.config.focus_topic or 'auto'}\n\n"
         f"## Concepts\n\n"
         f"{concept_lines}\n"
     )
@@ -277,31 +280,89 @@ def _render_solutions(state: StudyGraphState) -> str:
 
 def _render_review_notes(state: StudyGraphState) -> str:
     notes = state.review_notes
-    example_lookup = {example.example_id: example for example in state.examples}
-    mistake_lines = _render_common_mistakes(state)
-    example_lines = _render_review_examples(state, example_lookup)
-    formula_lines = _render_review_formulas(state, notes)
+    if notes.mode == "deep_dive":
+        return "\n".join(
+            [
+                "# 复习笔记",
+                "",
+                f"> 当前模式：`deep_dive`{f'，聚焦：{notes.focus_target}' if notes.focus_target else ''}",
+                *(["", f"> {notes.focus_selection_note}"] if notes.focus_selection_note else []),
+                "",
+                "## 这个方法 / 公式在解决什么问题",
+                _render_bullets(notes.concise_summary),
+                "",
+                "## 核心思想",
+                _render_bullets(notes.detailed_explanations),
+                "",
+                "## 公式和符号解释",
+                _render_note_lines(notes.formula_highlights),
+                "",
+                "## 计算 / 推导流程",
+                _render_bullets(notes.study_questions),
+                "",
+                "## 一个完整例子",
+                _render_note_lines(notes.example_highlights),
+                "",
+                "## 容易错在哪里",
+                _render_bullets(notes.common_mistakes),
+                "",
+                "## 来源",
+                _render_references(notes.references),
+                "",
+            ]
+        )
+
+    if notes.mode == "exam_sprint":
+        return "\n".join(
+            [
+                "# 复习笔记",
+                "",
+                "> 当前模式：`exam_sprint`",
+                "",
+                "## 必背定义",
+                _render_bullets(notes.concise_summary),
+                "",
+                "## 核心公式",
+                _render_note_lines(notes.formula_highlights),
+                "",
+                "## 高频考点",
+                _render_bullets(notes.detailed_explanations),
+                "",
+                "## 一道典型题",
+                _render_note_lines(notes.example_highlights),
+                "",
+                "## 速记提醒",
+                _render_bullets(notes.study_questions),
+                "",
+                "## 来源",
+                _render_references(notes.references),
+                "",
+            ]
+        )
+
     return "\n".join(
         [
             "# 复习笔记",
             "",
+            "> 当前模式：`full_review`",
+            "",
             "## 本章主线",
-            "\n".join(f"- {line}" for line in notes.concise_summary) or "- None",
+            _render_bullets(notes.concise_summary),
             "",
             "## 关键定义与公式",
-            formula_lines,
+            _render_note_lines(notes.formula_highlights),
             "",
             "## 算法 / 方法逐个讲解",
-            "\n".join(f"- {line}" for line in notes.detailed_explanations) or "- TODO",
+            _render_bullets(notes.detailed_explanations),
             "",
             "## 每个主要方法对应的例题 / worked example",
-            example_lines,
+            _render_note_lines(notes.example_highlights),
             "",
             "## 易错点 / 混淆点",
-            mistake_lines,
+            _render_bullets(notes.common_mistakes),
             "",
             "## 考前速记版",
-            "\n".join(f"- {line}" for line in notes.study_questions) or "- None",
+            _render_bullets(notes.study_questions),
             "",
             "## 来源",
             _render_references(notes.references),
@@ -368,50 +429,40 @@ def _primary_solution_formula(
     return None
 
 
-def _render_review_formulas(state: StudyGraphState, notes) -> str:
-    if state.formulas:
-        sections: list[str] = []
-        for formula in state.formulas[:4]:
-            sections.extend(
-                [
-                    f"- 公式 {formula.formula_id}",
-                    f"  {inline_math(formula.expression)}",
-                    (
-                        "  条件提醒："
-                        + (formula.conditions[0] if formula.conditions else "TODO: 需要回原材料确认。")
-                    ),
-                ]
-            )
-        return "\n".join(sections)
-    return "\n".join(f"- {line}" for line in notes.formula_highlights) or "- TODO"
+def _render_bullets(lines: list[str]) -> str:
+    return "\n".join(f"- {line}" for line in lines) or "- TODO"
 
 
-def _render_review_examples(state: StudyGraphState, example_lookup: dict[str, ExampleArtifact]) -> str:
-    if not state.examples:
-        return "- TODO: 当前材料过少，例题部分还需要补充。"
-    sections: list[str] = []
-    solution_lookup = {solution.example_id: solution for solution in state.worked_solutions}
-    for example in state.examples[:3]:
-        sections.append(f"### {example.title}")
-        sections.append(example.problem_statement or example.prompt or "TODO")
-        solution = solution_lookup.get(example.example_id)
-        if solution and solution.detailed_steps:
-            sections.append("关键步骤：")
-            sections.extend(f"- {step}" for step in solution.detailed_steps[:3])
-        sections.append("")
-    return "\n".join(sections).strip()
+def _render_note_lines(lines: list[str]) -> str:
+    if not lines:
+        return "TODO"
+
+    rendered: list[str] = []
+    for line in lines:
+        if not line:
+            rendered.append("")
+            continue
+        if line.startswith(("### ", "- ", "> ")):
+            rendered.append(line)
+            continue
+        if line.endswith("：") or line.endswith(":"):
+            rendered.append(line)
+            continue
+        if _looks_like_formula_line(line):
+            rendered.append(display_math(line))
+            continue
+        rendered.append(line)
+    return "\n".join(rendered)
 
 
-def _render_common_mistakes(state: StudyGraphState) -> str:
-    mistakes: list[str] = []
-    seen: set[str] = set()
-    for solution in state.worked_solutions:
-        for item in solution.common_mistakes:
-            if item in seen:
-                continue
-            seen.add(item)
-            mistakes.append(item)
-    return "\n".join(f"- {item}" for item in mistakes) or "- TODO"
+def _looks_like_formula_line(line: str) -> bool:
+    if len(line) > 80 or "TODO" in line or "：" in line or ":" in line or "`" in line:
+        return False
+    if not re.search(r"[A-Za-z]", line):
+        return False
+    if re.search(r"[\u4e00-\u9fff]", line):
+        return False
+    return "=" in line and bool(re.fullmatch(r"[A-Za-z0-9_/*^+=().\-\s]+", line))
 
 
 def _build_formula_links_by_concept(state: StudyGraphState) -> dict[str, list[FormulaArtifact]]:

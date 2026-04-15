@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
+
+StudyNoteMode = Literal["full_review", "deep_dive", "exam_sprint"]
 
 
 class SourceReference(BaseModel):
@@ -101,9 +105,14 @@ class WorkedSolution(BaseModel):
 class ReviewNotes(BaseModel):
     """Primary study-note output bundle."""
 
+    mode: StudyNoteMode = "full_review"
+    focus_target: str | None = None
+    focus_selection_note: str | None = None
     concise_summary: list[str] = Field(default_factory=list)
     detailed_explanations: list[str] = Field(default_factory=list)
     formula_highlights: list[str] = Field(default_factory=list)
+    example_highlights: list[str] = Field(default_factory=list)
+    common_mistakes: list[str] = Field(default_factory=list)
     study_questions: list[str] = Field(default_factory=list)
     references: list[SourceReference] = Field(default_factory=list)
 
@@ -133,6 +142,8 @@ class RuntimeConfig(BaseModel):
     chunk_size: int = 900
     chunk_overlap: int = 120
     top_k: int = 5
+    study_mode: StudyNoteMode = "full_review"
+    focus_topic: str | None = None
     enable_external_retrieval: bool = False
     enable_gemini_review: bool = False
 

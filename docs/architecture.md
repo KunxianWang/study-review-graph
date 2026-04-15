@@ -12,7 +12,7 @@ The current polished v0.1 foundation is centered on four primary outputs:
 - `worked_solutions.md`
 
 These outputs can be enhanced with an OpenAI-compatible model endpoint, including Gemini behind an OpenAI-compatible base URL, while preserving a heuristic fallback path.
-The wording and section structure of learning artifacts are also guided by a local repository skill at `.agents/skills/review-material-skill/`. This affects output style and pedagogical order, not the graph topology.
+The wording and section structure of learning artifacts are also guided by a local repository skill at `.agents/skills/review-material-generator/`. This affects output style and pedagogical order, not the graph topology.
 
 ## Design Principles
 
@@ -126,6 +126,12 @@ The repository includes a local study-material skill that acts as an operating g
 - `worked_examples.md` wording, study value, and Chinese-first presentation
 - `worked_solutions.md` ordering around intuition, formula choice, substitution, interpretation, and mistakes
 
+The review-note node now maps that skill into three explicit output modes:
+
+- `full_review`: full Chinese review pack
+- `deep_dive`: one concept / formula / method in depth
+- `exam_sprint`: compressed exam-oriented note
+
 This guidance is deliberately applied inside the existing nodes and exporters instead of introducing a separate agent loop or a new orchestration layer.
 
 ## Primary Outputs
@@ -183,6 +189,16 @@ This file is intended to support learning, not just answer production. Each entr
 - source references
 
 In v0.1, the solution scaffold stays deterministic. The model may improve wording and pedagogical clarity, but it should not invent unsupported derivations or exact conditions.
+
+### `review_notes.md`
+
+This file keeps a stable filename but now changes internal structure based on `RuntimeConfig.study_mode`.
+
+- `full_review` keeps the full review-pack outline
+- `deep_dive` chooses one focus target from current grounded artifacts, either from `focus_topic` or from a heuristic auto-selection
+- `exam_sprint` compresses the same grounded artifacts into an exam-oriented cheat-sheet style note
+
+The mode switch happens inside the review-note node and markdown exporter. The surrounding LangGraph workflow remains unchanged.
 
 ## Extension Points
 
