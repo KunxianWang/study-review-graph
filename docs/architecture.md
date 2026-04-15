@@ -10,6 +10,7 @@ The current polished v0.1 foundation is centered on four primary outputs:
 - `formula_sheet.md`
 - `worked_examples.md`
 - `worked_solutions.md`
+- `practice_set.md`
 
 These outputs can be enhanced with an OpenAI-compatible model endpoint, including Gemini behind an OpenAI-compatible base URL, while preserving a heuristic fallback path.
 The wording and section structure of learning artifacts are also guided by a local repository skill at `.agents/skills/review-material-generator/`. This affects output style and pedagogical order, not the graph topology.
@@ -33,6 +34,7 @@ ingest_documents
   -> example_generation
   -> solution_subgraph
   -> generate_review_notes
+  -> generate_practice_set
   -> quality_review
   -> export_outputs
 ```
@@ -81,7 +83,7 @@ The central state model is `StudyGraphState`. It carries:
 - course metadata
 - raw and normalized documents
 - chunks and retrieval cache
-- concepts, formulas, examples, worked solutions, review notes
+- concepts, formulas, examples, worked solutions, review notes, practice items
 - output paths
 - quality report
 - warnings and errors
@@ -117,6 +119,7 @@ Current LLM-enhanced nodes:
 - formula-sheet concept-link suggestion
 - worked-example wording refinement
 - worked-solution wording refinement
+- practice-question wording, hint, and answer refinement
 
 ## Local Skill Guidance
 
@@ -125,6 +128,7 @@ The repository includes a local study-material skill that acts as an operating g
 - `review_notes.md` section order and study-note framing
 - `worked_examples.md` wording, study value, and Chinese-first presentation
 - `worked_solutions.md` ordering around intuition, formula choice, substitution, interpretation, and mistakes
+- `practice_set.md` question phrasing, hints, and answer sketches
 
 The review-note node now maps that skill into three explicit output modes:
 
@@ -199,6 +203,17 @@ This file keeps a stable filename but now changes internal structure based on `R
 - `exam_sprint` compresses the same grounded artifacts into an exam-oriented cheat-sheet style note
 
 The mode switch happens inside the review-note node and markdown exporter. The surrounding LangGraph workflow remains unchanged.
+
+### `practice_set.md`
+
+This file turns the current study artifacts into a compact practice workflow. It is built from:
+
+- concepts for concept questions
+- formulas for formula-application questions
+- worked examples and worked solutions for calculation questions
+- review notes for final reminders and mistake checks
+
+In v0.1, item selection remains deterministic and close to existing grounded artifacts. Optional model calls only refine wording, hints, and answer clarity.
 
 ## Extension Points
 

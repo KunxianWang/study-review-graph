@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 
 from study_review_graph.markdown_math import display_math, inline_math, symbol_math
-from study_review_graph.state import ExampleArtifact, FormulaArtifact, SourceReference, StudyGraphState, WorkedSolution
+from study_review_graph.state import ExampleArtifact, FormulaArtifact, PracticeItem, SourceReference, StudyGraphState, WorkedSolution
 
 
 def export_markdown_bundle(state: StudyGraphState) -> dict[str, str]:
@@ -23,6 +23,7 @@ def export_markdown_bundle(state: StudyGraphState) -> dict[str, str]:
         "formulas": str(output_dir / "formulas.md"),
         "worked_solutions": str(output_dir / "worked_solutions.md"),
         "review_notes": str(output_dir / "review_notes.md"),
+        "practice_set": str(output_dir / "practice_set.md"),
         "quality_report": str(output_dir / "quality_report.md"),
     }
 
@@ -42,6 +43,7 @@ def export_markdown_bundle(state: StudyGraphState) -> dict[str, str]:
         encoding="utf-8",
     )
     Path(output_paths["review_notes"]).write_text(_render_review_notes(state), encoding="utf-8")
+    Path(output_paths["practice_set"]).write_text(_render_practice_set(state), encoding="utf-8")
     Path(output_paths["quality_report"]).write_text(
         _render_quality_report(state),
         encoding="utf-8",
@@ -58,12 +60,13 @@ def _render_overview(state: StudyGraphState) -> str:
         f"- Goal: {state.user_goal}\n"
         f"- Source documents: {len(state.normalized_docs)}\n"
         f"- Chunks: {len(state.chunks)}\n"
-        f"- Primary outputs: `content_map.md`, `formula_sheet.md`, `worked_examples.md`, `worked_solutions.md`\n"
+        f"- Primary outputs: `content_map.md`, `formula_sheet.md`, `worked_examples.md`, `worked_solutions.md`, `practice_set.md`\n"
         f"- Formulas: {len(state.formulas)}\n"
         f"- Examples: {len(state.examples)}\n"
         f"- Worked solutions: {len(state.worked_solutions)}\n\n"
         f"- Review mode: {state.config.study_mode}\n"
         f"- Focus topic: {state.config.focus_topic or 'auto'}\n\n"
+        f"- Practice items: {len(state.practice_items)}\n\n"
         f"## Concepts\n\n"
         f"{concept_lines}\n"
     )
@@ -392,6 +395,32 @@ def _render_quality_report(state: StudyGraphState) -> str:
     return "\n".join(sections)
 
 
+def _render_practice_set(state: StudyGraphState) -> str:
+    if not state.config.include_practice_set:
+        return "# 练习题集\n\n本次运行关闭了 practice set 生成。可使用 `--include-practice-set` 重新开启。\n"
+
+    sections = [
+        "# 练习题集",
+        "",
+        "这份练习题集基于当前已经生成的概念、公式、例题、详解和复习笔记整理而成。",
+        "默认保持中文优先、记号与课程材料一致，并在证据不足时保留保守表述。",
+        "",
+        "## 一、概念题",
+        _render_practice_section(state.practice_items, "concept_question"),
+        "",
+        "## 二、公式应用题",
+        _render_practice_section(state.practice_items, "formula_application"),
+        "",
+        "## 三、典型计算题",
+        _render_practice_section(state.practice_items, "worked_calculation"),
+        "",
+        "## 四、复习提醒",
+        _render_practice_reminders(state),
+        "",
+    ]
+    return "\n".join(sections)
+
+
 def _render_checks(checks) -> str:
     return "\n".join(f"- [{check.status}] {check.name}: {check.message}" for check in checks) or "- None"
 
@@ -471,3 +500,58 @@ def _build_formula_links_by_concept(state: StudyGraphState) -> dict[str, list[Fo
         for concept_id in formula.concept_links:
             links.setdefault(concept_id, []).append(formula)
     return links
+
+
+def _render_practice_section(items: list[PracticeItem], question_type: str) -> str:
+    matching_items = [item for item in items if item.question_type == question_type]
+    if not matching_items:
+        return "TODO: 当前还没有稳定生成这一类练习题。"
+
+    sections: list[str] = []
+    for item in matching_items:
+        sections.extend(
+            [
+                f"### {item.practice_id}",
+                f"- 题型：{_practice_type_label(item.question_type)}",
+                (
+                    f"- 关联概念：{', '.join(f'`{concept_id}`' for concept_id in item.concept_ids)}"
+                    if item.concept_ids
+                    else "- 关联概念：TODO"
+                ),
+                (
+                    f"- 关联公式：{', '.join(f'`{formula_id}`' for formula_id in item.formula_ids)}"
+                    if item.formula_ids
+                    else "- 关联公式：TODO"
+                ),
+                "",
+                "#### 题目",
+                item.prompt or "TODO",
+                "",
+                "#### 提示",
+                item.hint or "TODO",
+                "",
+                "#### 参考解题思路 / 标准答案",
+                item.expected_answer or "TODO",
+                "",
+                "#### 来源",
+                _render_references(item.references),
+                "",
+            ]
+        )
+    return "\n".join(sections).strip()
+
+
+def _render_practice_reminders(state: StudyGraphState) -> str:
+    reminders: list[str] = []
+    reminders.extend(f"- 易错点：{item}" for item in state.review_notes.common_mistakes[:3])
+    reminders.extend(f"- 做题前先检查：{item}" for item in state.review_notes.study_questions[:3])
+    return "\n".join(reminders) or "- TODO"
+
+
+def _practice_type_label(question_type: str) -> str:
+    labels = {
+        "concept_question": "概念题",
+        "formula_application": "公式应用题",
+        "worked_calculation": "典型计算题",
+    }
+    return labels.get(question_type, question_type)

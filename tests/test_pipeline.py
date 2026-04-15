@@ -1,18 +1,18 @@
 import shutil
-import tempfile
 from pathlib import Path
+from uuid import uuid4
 
 from study_review_graph.graph import invoke_study_graph
 from study_review_graph.state import RuntimeConfig, StudyGraphState
 
 
 def test_pipeline_runs_end_to_end():
-    temp_root = Path.cwd() / ".test_tmp"
+    temp_root = Path.cwd() / ".runtime_test_dirs"
     temp_root.mkdir(exist_ok=True)
-    temp_dir = Path(tempfile.mkdtemp(prefix="pipeline-", dir=temp_root))
+    temp_dir = temp_root / f"pipeline-{uuid4().hex}"
     input_dir = temp_dir / "input"
     output_dir = temp_dir / "output"
-    input_dir.mkdir()
+    input_dir.mkdir(parents=True)
 
     try:
         (input_dir / "notes.md").write_text(
@@ -49,21 +49,25 @@ def test_pipeline_runs_end_to_end():
         assert final_state.concepts
         assert final_state.examples
         assert final_state.worked_solutions
+        assert final_state.practice_items
         assert "content_map" in final_state.output_paths
         assert "formula_sheet" in final_state.output_paths
         assert "worked_examples" in final_state.output_paths
         assert "worked_solutions" in final_state.output_paths
         assert "review_notes" in final_state.output_paths
+        assert "practice_set" in final_state.output_paths
         assert (output_dir / "content_map.md").exists()
         assert (output_dir / "formula_sheet.md").exists()
         assert (output_dir / "worked_examples.md").exists()
         assert (output_dir / "worked_solutions.md").exists()
         assert (output_dir / "review_notes.md").exists()
+        assert (output_dir / "practice_set.md").exists()
         content_map = (output_dir / "content_map.md").read_text(encoding="utf-8")
         formula_sheet = (output_dir / "formula_sheet.md").read_text(encoding="utf-8")
         worked_examples = (output_dir / "worked_examples.md").read_text(encoding="utf-8")
         worked_solutions = (output_dir / "worked_solutions.md").read_text(encoding="utf-8")
         review_notes = (output_dir / "review_notes.md").read_text(encoding="utf-8")
+        practice_set = (output_dir / "practice_set.md").read_text(encoding="utf-8")
 
         assert "# Content Map" in content_map
         assert "## Newtonian Mechanics" in content_map
@@ -104,5 +108,14 @@ def test_pipeline_runs_end_to_end():
         assert "## 每个主要方法对应的例题 / worked example" in review_notes
         assert "## 易错点 / 混淆点" in review_notes
         assert "## 考前速记版" in review_notes
+
+        assert "# 练习题集" in practice_set
+        assert "## 一、概念题" in practice_set
+        assert "## 二、公式应用题" in practice_set
+        assert "## 三、典型计算题" in practice_set
+        assert "## 四、复习提醒" in practice_set
+        assert "#### 题目" in practice_set
+        assert "#### 提示" in practice_set
+        assert "#### 参考解题思路 / 标准答案" in practice_set
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)

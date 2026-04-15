@@ -7,6 +7,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 StudyNoteMode = Literal["full_review", "deep_dive", "exam_sprint"]
+PracticeItemType = Literal["concept_question", "formula_application", "worked_calculation"]
 
 
 class SourceReference(BaseModel):
@@ -117,6 +118,19 @@ class ReviewNotes(BaseModel):
     references: list[SourceReference] = Field(default_factory=list)
 
 
+class PracticeItem(BaseModel):
+    """Compact practice item grounded in current study artifacts."""
+
+    practice_id: str
+    question_type: PracticeItemType
+    concept_ids: list[str] = Field(default_factory=list)
+    formula_ids: list[str] = Field(default_factory=list)
+    prompt: str
+    hint: str = ""
+    expected_answer: str = ""
+    references: list[SourceReference] = Field(default_factory=list)
+
+
 class QualityCheck(BaseModel):
     """A single evaluator result."""
 
@@ -144,6 +158,7 @@ class RuntimeConfig(BaseModel):
     top_k: int = 5
     study_mode: StudyNoteMode = "full_review"
     focus_topic: str | None = None
+    include_practice_set: bool = True
     enable_external_retrieval: bool = False
     enable_gemini_review: bool = False
 
@@ -164,6 +179,7 @@ class StudyGraphState(BaseModel):
     examples: list[ExampleArtifact] = Field(default_factory=list)
     worked_solutions: list[WorkedSolution] = Field(default_factory=list)
     review_notes: ReviewNotes = Field(default_factory=ReviewNotes)
+    practice_items: list[PracticeItem] = Field(default_factory=list)
     output_paths: dict[str, str] = Field(default_factory=dict)
     quality_report: QualityReport = Field(default_factory=QualityReport)
     warnings: list[str] = Field(default_factory=list)

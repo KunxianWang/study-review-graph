@@ -1,15 +1,16 @@
 import os
 import shutil
-import tempfile
 from pathlib import Path
+from uuid import uuid4
 
 from study_review_graph.cli import _load_runtime_environment
 
 
 def test_explicit_env_file_overrides_stale_shell_variables(monkeypatch):
-    temp_root = Path.cwd() / ".test_tmp"
+    temp_root = Path.cwd() / ".runtime_test_dirs"
     temp_root.mkdir(exist_ok=True)
-    temp_dir = Path(tempfile.mkdtemp(prefix="cli-env-", dir=temp_root))
+    temp_dir = temp_root / f"cli-env-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
     env_file = temp_dir / ".env"
     try:
         env_file.write_text(

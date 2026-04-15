@@ -45,6 +45,11 @@ def run(
         None,
         help="Optional concept, formula, or method to focus on in deep_dive mode.",
     ),
+    include_practice_set: bool = typer.Option(
+        True,
+        "--include-practice-set/--skip-practice-set",
+        help="Generate the grounded practice_set.md artifact.",
+    ),
 ) -> None:
     """Run the study review graph on a local input directory."""
 
@@ -61,6 +66,7 @@ def run(
             top_k=top_k,
             study_mode=study_mode,
             focus_topic=focus_topic,
+            include_practice_set=include_practice_set,
         ),
     )
 

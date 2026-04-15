@@ -58,6 +58,11 @@ The state model is intentionally structured and explicit. Each major workflow st
 - Type: `list[WorkedSolution]`
 - Purpose: step plans, detailed steps, rationale, and common mistakes for examples
 
+### `practice_items`
+
+- Type: `list[PracticeItem]`
+- Purpose: grounded practice questions, hints, and reference answers built from current concepts, formulas, and worked examples
+
 ### `review_notes`
 
 - Type: `ReviewNotes`
@@ -111,11 +116,13 @@ Current v0.1 config fields:
 - `top_k`
 - `study_mode`
 - `focus_topic`
+- `include_practice_set`
 - `enable_external_retrieval`
 - `enable_gemini_review`
 
 The last two flags are extension hooks only. They do not enable advanced functionality in v0.1 yet.
 `study_mode` currently accepts `full_review`, `deep_dive`, and `exam_sprint`. `focus_topic` is an optional deep-dive hint.
+`include_practice_set` controls whether `practice_set.md` is populated during a run. It defaults to `True`.
 
 ### `ExampleArtifact`
 
@@ -172,6 +179,21 @@ This model stays lightweight on purpose. The same object can back:
 - exam-sprint summaries
 
 without changing the surrounding graph shape.
+
+### `PracticeItem`
+
+Current v0.1 practice-item fields include:
+
+- `practice_id`
+- `question_type`
+- `concept_ids`
+- `formula_ids`
+- `prompt`
+- `hint`
+- `expected_answer`
+- `references`
+
+This model is intentionally compact. It supports the new practice workflow slice without introducing a separate tutor or planner subsystem.
 
 ## Notes
 

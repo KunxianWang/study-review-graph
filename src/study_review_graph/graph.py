@@ -11,6 +11,7 @@ from study_review_graph.ingestion import load_raw_documents, normalize_documents
 from study_review_graph.nodes.content_map import build_content_map_node
 from study_review_graph.nodes.examples import generate_examples_node
 from study_review_graph.nodes.export import export_outputs_node
+from study_review_graph.nodes.practice_set import generate_practice_set_node
 from study_review_graph.nodes.quality_review import quality_review_node
 from study_review_graph.nodes.review_notes import generate_review_notes_node
 from study_review_graph.retrieval import build_retrieval_cache, chunk_documents
@@ -39,6 +40,7 @@ def build_study_graph():
     workflow.add_node("example_generation", _example_generation_graph_node)
     workflow.add_node("solution_subgraph", _solution_subgraph_graph_node)
     workflow.add_node("generate_review_notes", _generate_review_notes_graph_node)
+    workflow.add_node("generate_practice_set", _generate_practice_set_graph_node)
     workflow.add_node("quality_review", _quality_review_graph_node)
     workflow.add_node("export_outputs", _export_outputs_graph_node)
 
@@ -50,7 +52,8 @@ def build_study_graph():
     workflow.add_edge("formula_subgraph", "example_generation")
     workflow.add_edge("example_generation", "solution_subgraph")
     workflow.add_edge("solution_subgraph", "generate_review_notes")
-    workflow.add_edge("generate_review_notes", "quality_review")
+    workflow.add_edge("generate_review_notes", "generate_practice_set")
+    workflow.add_edge("generate_practice_set", "quality_review")
     workflow.add_edge("quality_review", "export_outputs")
     workflow.add_edge("export_outputs", END)
     return workflow.compile()
@@ -124,6 +127,15 @@ def _generate_review_notes_graph_node(state_dict: dict[str, Any]) -> dict[str, A
     state = StudyGraphState.model_validate(state_dict)
     review_notes = generate_review_notes_node(state)
     return {"review_notes": review_notes.model_dump(mode="python")}
+
+
+def _generate_practice_set_graph_node(state_dict: dict[str, Any]) -> dict[str, Any]:
+    state = StudyGraphState.model_validate(state_dict)
+    practice_items, warnings = generate_practice_set_node(state)
+    return {
+        "practice_items": [item.model_dump(mode="python") for item in practice_items],
+        "warnings": state.warnings + warnings,
+    }
 
 
 def _quality_review_graph_node(state_dict: dict[str, Any]) -> dict[str, Any]:

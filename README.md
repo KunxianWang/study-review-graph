@@ -1,6 +1,6 @@
 # study-review-graph
 
-`study-review-graph` is a CLI-first, open-source study and review pipeline for course materials. It ingests local study materials such as PDFs, markdown notes, and plain text notes, then produces grounded study artifacts. The current polished v0.1 foundation is centered on four showcase outputs: `content_map.md`, `formula_sheet.md`, `worked_examples.md`, and `worked_solutions.md`.
+`study-review-graph` is a CLI-first, open-source study and review pipeline for course materials. It ingests local study materials such as PDFs, markdown notes, and plain text notes, then produces grounded study artifacts. The current polished v0.1 foundation is centered on five showcase outputs: `content_map.md`, `formula_sheet.md`, `worked_examples.md`, `worked_solutions.md`, and `practice_set.md`.
 
 The current version supports an OpenAI-compatible model endpoint, including Gemini served through an OpenAI-compatible base URL. LLM enhancement is intentionally limited to targeted nodes inside the concept/formula slice and the example/solution slice.
 For learning artifacts, the repository also follows a local study-material skill under `.agents/skills/review-material-generator/`, which keeps review notes, worked examples, and worked solutions closer to a Chinese-first study-note structure without changing the underlying graph architecture.
@@ -28,13 +28,15 @@ Version `0.1.0` now includes two clearer functional slices with deterministic de
 - Deterministic review note generation aligned to a local Chinese study-note skill, with selectable output modes
 - Quality review placeholders for groundedness, formula coverage, and explanation completeness
 - Markdown export with source traceability fields where possible
+- A grounded `practice_set.md` built from current concepts, formulas, worked examples, worked solutions, and review notes
 
 This version is intentionally conservative. It is a runnable repository skeleton with two polished pipeline slices, not a finished pedagogical system. Targeted nodes can use an API-backed model when configured, but the repository still preserves a no-key heuristic fallback path.
 
-The two polished slices are:
+The current polished slices are:
 
 1. content and formula understanding via `content_map.md` and `formula_sheet.md`
 2. example and solution learning support via `worked_examples.md` and `worked_solutions.md`
+3. compact practice generation via `practice_set.md`
 
 ## Study Modes
 
@@ -159,6 +161,11 @@ Study-note mode flags:
 - `--study-mode exam_sprint`
 - `--focus-topic "Your concept or formula"` for `deep_dive`
 
+Practice-set flag:
+
+- `--include-practice-set/--skip-practice-set`
+  Defaults to enabled. Normal runs now generate `practice_set.md` unless you explicitly skip it.
+
 ## Generated Outputs
 
 The primary showcase outputs are:
@@ -167,6 +174,7 @@ The primary showcase outputs are:
 - `formula_sheet.md`
 - `worked_examples.md`
 - `worked_solutions.md`
+- `practice_set.md`
 
 `content_map.md` contains:
 
@@ -205,6 +213,15 @@ The primary showcase outputs are:
 - common mistakes
 - source references
 
+`practice_set.md` contains:
+
+- grounded concept questions
+- grounded formula-application questions
+- grounded worked-calculation questions
+- a hint for each question
+- a reference answer or solution sketch for each question
+- review reminders based on current notes and common mistakes
+
 The exporter also keeps these additional files:
 
 - `overview.md`
@@ -214,6 +231,7 @@ The exporter also keeps these additional files:
 
 These outputs are scaffolded for grounded study workflows and include source references whenever the current stage can preserve them.
 `review_notes.md` keeps the same filename, but its internal structure now changes with the selected study mode and follows the local skill templates in `.agents/skills/review-material-generator/`.
+`practice_set.md` reuses the current grounded artifacts rather than generating from a disconnected quiz subsystem.
 
 ## Current Limitations
 
@@ -225,6 +243,7 @@ These outputs are scaffolded for grounded study workflows and include source ref
 - Worked-example structure is deterministic first. The model only refines wording around the same formula-centered example.
 - Worked-solution generation is still conservative. It can improve step wording with the model, but direct arithmetic is only attempted for simple solved-form formulas.
 - Review-note section order is skill-guided, but the actual section content is still assembled from existing concepts, formulas, examples, and solutions rather than a broader pedagogical planner.
+- Practice-item selection is deterministic first. The model can refine question wording, hints, and answer clarity, but it does not invent new unsupported topics.
 - `deep_dive` target selection is still heuristic when `--focus-topic` is omitted or cannot be matched cleanly.
 - Quality review uses placeholder checks rather than advanced evaluators.
 - Retrieval is deterministic token overlap, not embeddings.
@@ -249,8 +268,9 @@ The main LangGraph workflow is organized around these nodes:
 6. `example_generation`
 7. `solution_subgraph`
 8. `generate_review_notes`
-9. `quality_review`
-10. `export_outputs`
+9. `generate_practice_set`
+10. `quality_review`
+11. `export_outputs`
 
 Two specialized subgraphs keep responsibilities sharp:
 
@@ -277,6 +297,12 @@ Exam sprint:
 
 ```bash
 study-review-graph run --input-dir examples/input --output-dir examples/output/exam_sprint_run --study-mode exam_sprint
+```
+
+Full sample pipeline with practice generation enabled:
+
+```bash
+study-review-graph run --input-dir examples/input --output-dir examples/output/run --study-mode full_review --include-practice-set
 ```
 
 See [docs/architecture.md](docs/architecture.md) for more detail.

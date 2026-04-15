@@ -1,6 +1,6 @@
 import shutil
-import tempfile
 from pathlib import Path
+from uuid import uuid4
 
 from study_review_graph.exporters.markdown import export_markdown_bundle
 from study_review_graph.nodes.review_notes import generate_review_notes_node
@@ -66,9 +66,10 @@ def test_review_notes_exam_sprint_structure():
 def test_review_note_export_changes_structure_by_mode():
     state = _build_state(study_mode="exam_sprint")
     state.review_notes = generate_review_notes_node(state)
-    temp_root = Path.cwd() / ".test_tmp"
+    temp_root = Path.cwd() / ".runtime_test_dirs"
     temp_root.mkdir(exist_ok=True)
-    temp_dir = Path(tempfile.mkdtemp(prefix="review-notes-", dir=temp_root))
+    temp_dir = temp_root / f"review-notes-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
     try:
         state.config.output_dir = str(temp_dir)
         output_paths = export_markdown_bundle(state)
